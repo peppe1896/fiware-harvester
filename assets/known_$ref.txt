@@ -1,0 +1,5 @@
+** ADD HERE SOME $ref LINKS THAT YOU ALREADY KNOW. **
+https://smart-data-models.github.io/data-models/common-schema.json#/definitions/EntityIdentifierType
+https://smart-data-models.github.io/data-models/common-schema.json#/definitions/Location-Commons/properties/location
+https://smart-data-models.github.io/data-models/common-schema.json#/definitions/GSMA-Commons
+https://smart-data-models.github.io/data-models/common-schema.json#/definitions/Location-Commons
