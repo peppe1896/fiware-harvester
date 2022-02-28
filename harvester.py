@@ -1,0 +1,118 @@
+import loader
+import datetime
+import os
+import pandas as pd
+import json
+import db_schema_helper as db_helper
+import re
+
+class harvester:
+
+    def __init__(self,
+                 base_link="https://github.com/smart-data-models/",
+                 domains=None,
+                 download_folder="",
+                 result_folder=""):
+
+        if domains is None:
+            domains = [
+                "SmartCities",
+                "SmartAgrifood",
+                "SmartWater",
+                "SmartEnergy",
+                "SmartEnvironment",
+                "SmartRobotics",
+                "Smart-Sensoring",
+                "CrossSector",
+                "SmartAeronautics",
+                "SmartDestination",
+                "SmartHealth",
+                "SmartManufacturing"]
+        self.domains = domains
+
+        if download_folder == "":
+            self.download_folder = "/media/giuseppe/Archivio2/Download"   # Where to downaload Repos
+        else:
+            self.download_folder = download_folder
+
+        self.loader = loader.loader(self.download_folder)
+
+        if result_folder == "":
+            self.result_folder = os.path.dirname(__file__) + "/Results/"
+        else:
+            self.result_folder = result_folder
+
+        self.db_helper = db_helper.db_schema_helper(self.result_folder)
+
+        os.makedirs(self.result_folder[:-1], exist_ok=True)
+
+        self.base_link = base_link
+        self.timestamp = datetime.datetime.today()
+
+        self.location_schemas = None
+        self.pandas_dataframe = None
+
+        if not self.dict_already_exists():
+            self.load_required_files()
+            self.load_domain_dict()
+            self.save_domain_dict()
+        else:
+            self.load_created_dict()
+
+        self.create_db_from_dict()
+
+    def dict_already_exists(self):
+        return os.path.exists(self.result_folder + "schemas_location.json")
+
+    def load_created_dict(self):
+        with open(self.result_folder+"schemas_location.json") as file:
+            self.location_schemas = json.load(file)
+
+    def create_db_from_dict(self):
+        _columns = ["Domain", "Subdomain", "Model", "jsonschema", "time", "version"]
+        self.pandas_dataframe = pd.DataFrame(columns=_columns)
+        for domain in self.location_schemas.keys():
+            for subdomain in self.location_schemas[domain].keys():
+                for model in self.location_schemas[domain][subdomain].keys():
+                    #with open(self.location_schemas[domain][subdomain])
+                    _schema_link = self.location_schemas[domain][subdomain][model]
+                    with open(_schema_link) as _json_schema:
+                        _schema_content = _json_schema.read()
+                    self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, "0"))
+
+                    _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":["asdsad"], "time":[self.timestamp], "version":["0"]}
+                    _append = pd.DataFrame(_row, columns=_columns)
+                    self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
+
+        with open(self.result_folder+"db_schema-pandas.json", "w") as file:
+            _temp = self.pandas_dataframe.to_json(indent=2, force_ascii=False)
+            file.write(_temp)
+
+    def load_required_files(self):
+        for domain in self.domains:
+            print(f"(Down)loading {domain}")
+            self.loader.get_repo(link=self.base_link + domain + ".git", folder_name=domain)
+
+    def load_domain_dict(self):
+        main_dict = dict()
+        for domain in self.domains:
+            self.loader.set_last_folder(domain)
+            main_dict[domain] = self.loader.find_schemas()
+        self.location_schemas = main_dict
+
+    def get_locations_schema(self):
+        return self.location_schemas
+
+    def get_domain_schemas(self, domain):
+        return self.location_schemas[domain]
+
+    def delete_local_files(self):
+        self.loader.delete_local_data(True)
+
+    def save_domain_dict(self):
+        with open(self.result_folder+"schemas_location.json", "w") as file:
+            json.dump(self.location_schemas, file, indent=2)
+
+
+h = harvester()
+print(h.get_locations_schema())
