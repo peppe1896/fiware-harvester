@@ -4,7 +4,6 @@ import os
 import pandas as pd
 import json
 import db_schema_helper as db_helper
-import re
 
 class harvester:
 
@@ -70,23 +69,37 @@ class harvester:
 
     def create_db_from_dict(self):
         _columns = ["Domain", "Subdomain", "Model", "jsonschema", "time", "version"]
-        self.pandas_dataframe = pd.DataFrame(columns=_columns)
-        for domain in self.location_schemas.keys():
-            for subdomain in self.location_schemas[domain].keys():
-                for model in self.location_schemas[domain][subdomain].keys():
-                    #with open(self.location_schemas[domain][subdomain])
-                    _schema_link = self.location_schemas[domain][subdomain][model]
-                    with open(_schema_link) as _json_schema:
-                        _schema_content = _json_schema.read()
-                    self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, "0"))
+        if not os.path.exists(self.result_folder+"db_schema-pandas.json"):
+            self.pandas_dataframe = pd.DataFrame(columns=_columns)
+            for domain in self.location_schemas.keys():
+                for subdomain in self.location_schemas[domain].keys():
+                    for model in self.location_schemas[domain][subdomain].keys():
+                        #with open(self.location_schemas[domain][subdomain])
+                        _schema_link = self.location_schemas[domain][subdomain][model]
+                        with open(_schema_link) as _json_schema:
+                            _schema_content = _json_schema.read()
+                        self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, "0"))
 
-                    _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":["asdsad"], "time":[self.timestamp], "version":["0"]}
-                    _append = pd.DataFrame(_row, columns=_columns)
-                    self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
+                        _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":[_schema_content], "time":[self.timestamp], "version":["0"]}
+                        _append = pd.DataFrame(_row, columns=_columns)
+                        self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
 
-        with open(self.result_folder+"db_schema-pandas.json", "w") as file:
-            _temp = self.pandas_dataframe.to_json(indent=2, force_ascii=False)
-            file.write(_temp)
+            with open(self.result_folder+"db_schema-pandas.json", "w") as file:
+                _temp = self.pandas_dataframe.to_json(indent=2, force_ascii=False)
+                file.write(_temp)
+        else:
+            for domain in self.location_schemas.keys():
+                for subdomain in self.location_schemas[domain].keys():
+                    for model in self.location_schemas[domain][subdomain].keys():
+                        _schema_link = self.location_schemas[domain][subdomain][model]
+                        with open(_schema_link) as _json_schema:
+                            _schema_content = _json_schema.read()
+                        esit, return_msg = self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, "0"))
+                        if not esit:
+                            print(return_msg)
+                            if input("Would you like to continue?") in ["False", "false", "no", "No", "NO", "FALSE"]:
+                                return
+        print(self.db_helper.read_db())
 
     def load_required_files(self):
         for domain in self.domains:

@@ -1,6 +1,5 @@
 # Voglio avere un oggetto che chiamo loader che si occupa di fornire una lista di link
 # corrispondenti ai singoli link dei modelli
-# https://xiaoluoboding.github.io/repository-tree/ - usando questo link generi il tree della pagina
 # link https://github.com/smart-data-models
 
 from git import Repo
@@ -62,13 +61,9 @@ class loader:
             if os.path.isdir("tools/"):
                 shutil.rmtree("tools/")
 
-    # Expect a structure BASE_ROOT/dataModel.<SUBDOMAIN>/<MODEL>/[files, one of this must be schema.json]
     # dataModels è una lista di subDomain, dai quali si vuole ottenere i vari schema
     # Esempio: nel caso di SmartCities (che è il dominio) ho Building, Parking...
     # base_root è consigliabile lasciarlo vuoto - Si assegna la cartella in cui sono presenti tutti i subdomain
-    # base_root viene costruista mettendo l'abs_path del progetto, concatenata con il nome della repository.
-    # questo ultimo nome lo si può considerare come un puntatore, nel caso in cui si scaricano più di un solo dominio
-    # Se non vengono scaricati più domini, non è necessario intervenire su base_root.
     # Restituisce un dizionario:
     # <SUBDOMAIN>: <MODEL> : <Schema uri (abs path of schema.json)>
     def find_schemas(self, dataModels=[], base_root=""):

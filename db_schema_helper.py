@@ -24,8 +24,10 @@ class db_schema_helper:
         try:
             self.cursor.execute('INSERT INTO raw_schema_model VALUES (?, ?, ?, ?, ?, ?)', tuple)
             self.connection.commit()
+            return True, ""
         except sqlite3.Error as e:
-            print("Error in DB:", e.args[0])
+            _msg = "Error in DB:", e.args[0]
+            return False, _msg
 
     def read_db(self):
         try:

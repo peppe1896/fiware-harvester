@@ -1,14 +1,15 @@
 import json
 import os
-import shutil
 
-class schema_to_s4c:
+class schema_for_s4c:
 
     def __init__(self,
                  schema_uri="/home/giuseppe/PycharmProjects/auto_downl_ghub/SmartCities/dataModel.Transportation/Road/schema.json",
                  domain="SmartCities", subdomain="Transportation", model="Road",
-                 attribute_to_clean=["$schema", "$id", "$schemaVersion", "modelTags"], constraint_schema=["allOf", "anyOf", "oneOf", "not"]):
-        self.base = os.path.dirname(__file__) + "/"
+                 attribute_to_clean=["$schema", "$id", "$schemaVersion", "modelTags"],
+                 constraint_schema=["allOf", "anyOf", "oneOf", "not"]):
+
+        self.base_folder = os.path.dirname(__file__) + "/"
         self.domain = domain
         self.subdomain = subdomain
         self.model = model
@@ -24,6 +25,7 @@ class schema_to_s4c:
             "$id": "",
             "$schemaVersion": "",
             "modelTags": ""}
+
         self.constraint_schema = constraint_schema
         self.known_ref = []
         self.schema_type = "object"
@@ -32,17 +34,25 @@ class schema_to_s4c:
         self.schema_details = ""
         self.schema_valid = "VALID"              # append this to the end of the file that save schema_details
 
-        self._load_schema()
-        self._control_standardized_schema()
-        self._clean_schema()
-        self._validate_schema_structure()
-        self._save_details()
+        self._procedure(self.schema_uri, domain, subdomain, model)
 
     # Discard [$schema, $id]
     # Prendo [title, description, required] - attributi scalari
     # type può essere un OBJ, ARRAY, primitivi
     # propierties
     # allOf, anyOf, oneOf, not
+
+    # Procedure istanzia un nuovo modello - Può essere chiamato da fuori contenendo questo oggetto
+    def procedure(self, schema_uri, domain, subdomain, model):
+        self.schema_uri = schema_uri
+        self.domain = domain
+        self.subdomain = subdomain
+        self.model = model
+        self._load_schema()
+        self._control_standardized_schema()
+        self._clean_schema()
+        self._validate_schema_structure()
+        self._save_details()
 
     # Load schema from json file containing it
     def _load_schema(self):
@@ -55,7 +65,7 @@ class schema_to_s4c:
         with open(self.schema_uri) as schema:
             self.raw_schema = json.load(schema)
 
-        with open(self.base + "assets/known_$ref.txt") as known_ref:
+        with open(self.base_folder + "assets/known_$ref.txt") as known_ref:
             for line in known_ref:
                 self.known_ref.append(line[:-1])
                 # known_$ref must end with newline
@@ -256,14 +266,14 @@ class schema_to_s4c:
         return True, attribute
 
     def _save_details(self):
-        dir = self.base + "Results/"+self.domain+"/dataModel." + self.subdomain + "/" + self.model
+        dir = self.base_folder + "Results/" + self.domain + "/dataModel." + self.subdomain + "/" + self.model
         os.makedirs(dir, exist_ok=True)
         with open(dir + f"/{self.model}-Analisis.txt", "w") as details:
             details.write(self.schema_details)
 
 
 
-a = schema_to_s4c()
+a = schema_for_s4c()
 
 #print(a.raw_schema)
 #print(a.schema_scalar_attribute)
