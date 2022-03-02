@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import json
 import db_schema_helper as db_helper
+import schema_for_snap4city as s4c
 
 class harvester:
 
@@ -28,36 +29,28 @@ class harvester:
                 "SmartHealth",
                 "SmartManufacturing"]
         self.domains = domains
-
         if download_folder == "":
             self.download_folder = "/media/giuseppe/Archivio2/Download"   # Where to downaload Repos
         else:
             self.download_folder = download_folder
-
         self.loader = loader.loader(self.download_folder)
-
         if result_folder == "":
             self.result_folder = os.path.dirname(__file__) + "/Results/"
         else:
             self.result_folder = result_folder
-
-        self.db_helper = db_helper.db_schema_helper(self.result_folder)
-
         os.makedirs(self.result_folder[:-1], exist_ok=True)
-
+        self.db_helper = db_helper.db_schema_helper(self.result_folder)
         self.base_link = base_link
         self.timestamp = datetime.datetime.today()
-
         self.location_schemas = None
         self.pandas_dataframe = None
-
         if not self.dict_already_exists():
             self.load_required_files()
             self.load_domain_dict()
             self.save_domain_dict()
         else:
             self.load_created_dict()
-
+        self.schema_reader = s4c.schema_for_s4c(self.result_folder)
         self.create_db_from_dict()
 
     def dict_already_exists(self):
@@ -78,9 +71,12 @@ class harvester:
                         _schema_link = self.location_schemas[domain][subdomain][model]
                         with open(_schema_link) as _json_schema:
                             _schema_content = _json_schema.read()
-                        self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, "0"))
 
-                        _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":[_schema_content], "time":[self.timestamp], "version":["0"]}
+                        self.schema_reader.procedure(_schema_link, domain, subdomain, model)
+                        _attr = self.schema_reader.get_scalar_attribute()
+                        self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, _attr["$schemaVersion"]))
+
+                        _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":[_schema_content], "time":[self.timestamp], "version":[_attr["$schemaVersion"]]}
                         _append = pd.DataFrame(_row, columns=_columns)
                         self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
 
@@ -94,7 +90,10 @@ class harvester:
                         _schema_link = self.location_schemas[domain][subdomain][model]
                         with open(_schema_link) as _json_schema:
                             _schema_content = _json_schema.read()
-                        esit, return_msg = self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, "0"))
+                        self.schema_reader.procedure(_schema_link, domain, subdomain, model)
+                        _attr = self.schema_reader.get_scalar_attribute()
+                        esit, return_msg = self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, _attr["$schemaVersion"]))
+
                         if not esit:
                             print(return_msg)
                             if input("Would you like to continue?") in ["False", "false", "no", "No", "NO", "FALSE"]:
@@ -128,4 +127,4 @@ class harvester:
 
 
 h = harvester()
-print(h.get_locations_schema())
+print("hello")

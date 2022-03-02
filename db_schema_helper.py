@@ -13,9 +13,9 @@ class db_schema_helper:
                         Subdomain TEXT NOT NULL,
                         Model TEXT NOT NULL,
                         json_schema TEXT NOT NULL,
-                        timestamp INTEGER NOT NULL,
-                        version TEXT NOT NULL
-                    )""")
+                        timestamp TEXT NOT NULL,
+                        version TEXT DEFAULT '0.0.0' NOT NULL
+                    );""")
             self.connection.commit()
         except sqlite3.Error as e:
             pass
@@ -34,5 +34,3 @@ class db_schema_helper:
             self.cursor.execute('SELECT * FROM raw_schema_model')
         except sqlite3.Error as e:
             print("Error in DB:", e.args[0])
-
-
