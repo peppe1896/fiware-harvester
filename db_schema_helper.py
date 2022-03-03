@@ -12,13 +12,16 @@ class db_schema_helper:
                         Domain TEXT NOT NULL,
                         Subdomain TEXT NOT NULL,
                         Model TEXT NOT NULL,
+                        version TEXT NOT NULL,
+                        attributes TEXT NOT NULL,
+                        warnings TEXT NOT NULL,
                         json_schema TEXT NOT NULL,
                         timestamp TEXT NOT NULL,
-                        version TEXT DEFAULT '0.0.0' NOT NULL
+                        PRIMARY KEY (Domain, Subdomain, Model, version)
                     );""")
             self.connection.commit()
         except sqlite3.Error as e:
-            pass
+            print(e.args[0])
 
     def add_tuple(self, tuple):
         try:
@@ -26,7 +29,7 @@ class db_schema_helper:
             self.connection.commit()
             return True, ""
         except sqlite3.Error as e:
-            _msg = "Error in DB:", e.args[0]
+            _msg = "Error in DB:" + e.args[0]
             return False, _msg
 
     def read_db(self):

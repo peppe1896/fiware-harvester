@@ -50,7 +50,7 @@ class harvester:
             self.save_domain_dict()
         else:
             self.load_created_dict()
-        self.schema_reader = s4c.schema_for_s4c(self.result_folder)
+        self.schema_reader = s4c.schema_for_s4c(result_folder=self.result_folder)
         self.create_db_from_dict()
 
     def dict_already_exists(self):
@@ -73,10 +73,12 @@ class harvester:
                             _schema_content = _json_schema.read()
 
                         self.schema_reader.procedure(_schema_link, domain, subdomain, model)
-                        _attr = self.schema_reader.get_scalar_attribute()
-                        self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, _attr["$schemaVersion"]))
+                        _scalar_attr = self.schema_reader.get_scalar_attribute()
+                        _attributes = self.schema_reader.get_attributes()
 
-                        _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":[_schema_content], "time":[self.timestamp], "version":[_attr["$schemaVersion"]]}
+                        self.db_helper.add_tuple((domain, subdomain, model, _scalar_attr["$schemaVersion"], _schema_content, self.timestamp))
+
+                        _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":[_schema_content], "time":[self.timestamp], "version":[_scalar_attr["$schemaVersion"]]}
                         _append = pd.DataFrame(_row, columns=_columns)
                         self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
 
@@ -91,10 +93,11 @@ class harvester:
                         with open(_schema_link) as _json_schema:
                             _schema_content = _json_schema.read()
                         self.schema_reader.procedure(_schema_link, domain, subdomain, model)
-                        _attr = self.schema_reader.get_scalar_attribute()
-                        esit, return_msg = self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, _attr["$schemaVersion"]))
+                        _scalar_attr = self.schema_reader.get_scalar_attribute()
+                        _attributes = self.schema_reader.get_attributes()
+                        _esit, return_msg = self.db_helper.add_tuple((domain, subdomain, model, _schema_content, self.timestamp, _scalar_attr["$schemaVersion"]))
 
-                        if not esit:
+                        if not _esit:
                             print(return_msg)
                             if input("Would you like to continue?") in ["False", "false", "no", "No", "NO", "FALSE"]:
                                 return
@@ -102,8 +105,9 @@ class harvester:
 
     def load_required_files(self):
         for domain in self.domains:
-            print(f"(Down)loading {domain}")
+            print(f"Loading {domain}")
             self.loader.get_repo(link=self.base_link + domain + ".git", folder_name=domain)
+        print("Domains loaded.")
 
     def load_domain_dict(self):
         main_dict = dict()
