@@ -5,29 +5,44 @@
 # Creatore di db (direttamente implementato da pandas)
 # Eventuale interfaccia grafica per fare comunicare questi oggetti tra loro
 # Main che gestisce questi moduli
-import loader as ld
+
+###########
+# IMPORTS:#
+###########
 import os
-#import functions as func
-import json
-#repository_name = "SmartCities"
-github_repo_link = "https://github.com/smart-data-models/SmartDestination.git"
+import Harvester as hv
 
+###############
+# DEFINITIONS:#
+###############
+base_link = "https://github.com/smart-data-models/"
+download_folder = "/media/giuseppe/Archivio2/Download"
+result_folder = os.path.dirname(__file__) + "/Results/"
+domains = [
+    "data-models",
+    "SmartCities",
+    "SmartAgrifood",
+    "SmartWater",
+    "SmartEnergy",
+    "SmartEnvironment",
+    "SmartRobotics",
+    "Smart-Sensoring",
+    "CrossSector",
+    "SmartAeronautics",
+    "SmartDestination",
+    "SmartHealth",
+    "SmartManufacturing"]
 
+h = None
 if __name__ == "__main__":
-    loader = ld.loader()
-    domain = "SmartAeronautics"
-    #ghub.get_tools()
-    loader.get_repo(link=github_repo_link, folder_name=domain)
-    #loader.delete_local_data()
-    schemas_dict = loader.find_schemas()
-    #print(schemas_dict)
-    for subdomain in schemas_dict:
-        for model in schemas_dict[subdomain]:
-            os.makedirs("./Results/"+domain+"/dataModel."+subdomain+"/"+model, exist_ok=True)
-            with open("./Results/dataModel."+subdomain+"/"+model+"/"+model+".json","w") as new_model:
-                #snap4city_model = func.calculate_model(schemas_dict[subdomain][model])
-                #print(snap4city_model)
-                break
-                #new_model.write(json.dump(func.calculate_model(schemas_dict[subdomain][model])))
-
-
+    while True:
+        if h is None:
+            h = hv.Harvester(
+                base_link=base_link,
+                domains=domains,
+                download_folder=download_folder,
+                result_folder=result_folder)
+        else:
+            _input = _input("cmd>\n")
+            if _input == "read":
+                print(h.query_db("SELECT * FROM raw_schema_model"))

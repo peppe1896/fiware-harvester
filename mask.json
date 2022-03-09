@@ -13,13 +13,13 @@
    "service_path":"",
    "d_attributes":[
       {
-         "value_name":"",
-         "data_type":"",
+         "value_name":"{NOME DELLA PROPRIETA'}",
+         "data_type":"{STRING..}",
          "value_type":"",
          "value_unit":"",
-         "healthiness_criteria":"",
-         "healthiness_value":"",
-         "editable":""
+         "healthiness_criteria":"refresh_rate",
+         "healthiness_value":"300",
+         "editable":"0"
       }
    ]
 }

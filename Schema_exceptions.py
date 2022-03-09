@@ -1,4 +1,4 @@
-class schema_exception(Exception):
+class Schema_exception(Exception):
 
     def __init__(self, error_msg):
         self._message = error_msg

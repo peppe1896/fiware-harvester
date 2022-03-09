@@ -1,6 +1,5 @@
-# Voglio avere un oggetto che chiamo loader che si occupa di fornire una lista di link
-# corrispondenti ai singoli link dei modelli
-# link https://github.com/smart-data-models
+# Download from github
+# Look from "schema" files (only those ending with json)
 
 from git import Repo
 import re
@@ -8,9 +7,8 @@ import os
 import shutil
 
 
-class loader:
+class Loader:
     def __init__(self, repo_base=""):
-        self.repository_link = "https://github.com/smart-data-models"  # Value di base
         self.tools_link = "https://github.com/smart-data-models/tools"  # Value di base
         self.repositories = []  # Contiene la lista delle cartelle contententi le repo (I VARI DOMINI)
         if repo_base == "":
@@ -18,6 +16,7 @@ class loader:
         else:
             self.repo_base = repo_base + "/Domains/"
         self.last_repo = ""  # l'ultimo valore inserito in self.repositories
+        self.definition_schemas = {}
 
     # PUBLIC
     # Scarica i tools dal link (Non sembrano essere molto utili)
@@ -73,11 +72,19 @@ class loader:
             working_root = self.get_last_folder()
 
         if len(dataModels) == 0:
-            for subdomain in os.listdir(working_root):
-                if subdomain.startswith("dataModel."):
-                    subdomain_name = subdomain[10:]
-                    schemas = self._find_schemas_subdomain(subdomain_name, working_root)
-                    schemas_per_subdomain[subdomain_name] = schemas
+            if working_root.endswith("data-models"):
+                _temp = []
+                files = os.listdir(working_root)
+                for f in files:
+                    if re.search("schema", f) and re.search(".json", f):
+                        _temp.append(os.path.join(working_root, f))
+                schemas_per_subdomain["common-schemas"] = _temp
+            else:
+                for subdomain in os.listdir(working_root):
+                    if subdomain.startswith("dataModel."):
+                        subdomain_name = subdomain[10:]
+                        schemas = self._find_schemas_subdomain(subdomain_name, working_root)
+                        schemas_per_subdomain[subdomain_name] = schemas
         else:
             for subdomain in dataModels:
                 if os.path.isdir(os.path.join(working_root, subdomain)):
@@ -97,14 +104,19 @@ class loader:
     def _find_schemas_subdomain(self, subdomain, folder):
         result = dict()
         working_folder = folder + "/"
-        if subdomain != "":
+        if subdomain != "" and subdomain != "data-models":
             working_folder = folder + "/dataModel." + subdomain
+        elif subdomain == "data-models":
+            working_folder = folder + "/"
+        _res = self._find_extra_schema(working_folder)
+        out = _res[0]
+        defs = _res[1]
 
-        out = self._find_extra_schema(working_folder)
-
-        for schema_path in out:
-            result[os.path.basename(os.path.dirname(schema_path))] = schema_path
-
+        if subdomain != "data-models":
+            for schema_path in out:
+                result[os.path.basename(os.path.dirname(schema_path))] = schema_path
+            for _def in defs:
+                self.definition_schemas[os.path.basename(os.path.dirname(_def))] = _def
         return result
 
     def _find_extra_schema(self, folder):
@@ -113,22 +125,31 @@ class loader:
             return list()
 
         out = list()
+        def_schemas = list()
         files = os.listdir(folder)
 
         for f in files:
             tested = os.path.join(folder, f)
-            if os.path.isfile(tested) and f.endswith('schema.json') and f.startswith('schema.json'):
-                out.append(tested)
-            elif os.path.isdir(tested):
-                out.extend(self._find_extra_schema(tested))
+            if os.path.isfile(tested) and re.search("schema", f):# f.endswith('schema.json'):#and f.startswith('schema.json'):
+                if f == "schema.json":
+                    out.append(tested)
+                else:
+                    if f.endswith(".json") and not f.endswith("DTDL.json"):
+                        def_schemas.append(tested)
 
-        return out
+            elif os.path.isdir(tested):
+                _res = self._find_extra_schema(tested)
+                out.extend(_res[0])
+                def_schemas.extend(_res[1])
+
+
+        return out, def_schemas
 
     # Create repository and, eventually, download all repository under the umbrella
     def _load_repository(self, link, repo_name="Repo"):
         Repo.clone_from(link, self.repo_base + repo_name + "/")
         gitmodule_uri = self._search_gitmodule(self.repo_base + repo_name)
-        if gitmodule_uri:
+        if gitmodule_uri and repo_name != "data-models":
             links = self._read_gitmodules(gitmodule_uri)
             for link in links:
                 found = re.findall("dataModel.*[^git]", link)
@@ -136,7 +157,7 @@ class loader:
                     end_of_link = found[0]
                 else:
                     print("\tThis "+link+" is a non-common link. Maybe it's duplicated, check it by yourself.")
-                    end_of_link = "NO-NAME-FOUND-FOR-" + re.sub('https://github.com/smart-data-models/', "", link)
+                    end_of_link = "NNFF-" + re.sub('https://github.com/smart-data-models/', "", link)
                 Repo.clone_from(link, self.repo_base + repo_name + "/" + end_of_link[0:len(end_of_link) - 1])  # Se non metti -1 resta il punto finale
 
     def _search_gitmodule(self, base_folder):
@@ -158,3 +179,6 @@ class loader:
                     links.append(link[0])
 
         return links
+
+    def get_definition_schemas(self):
+        return self.definition_schemas
