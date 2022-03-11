@@ -8,8 +8,6 @@ import Db_schema_helper as db
 ###############
 # DEFINITIONS #
 ###############
-
-# Da testare fuori da ambiente linux. Potrebbe non funzionare per via del separatore "/" negli uri
 base_link = "https://github.com/smart-data-models/"             # Don't change
 download_folder = os.path.dirname(__file__)+ "/Download/"       # Must end with /
 result_folder = os.path.dirname(__file__)+ "/Results/"          # Must end with /
