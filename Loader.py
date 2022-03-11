@@ -1,6 +1,3 @@
-# Download from github
-# Look from "schema" files (only those ending with json)
-
 from git import Repo
 import re
 import os
@@ -9,23 +6,19 @@ import shutil
 
 class Loader:
     def __init__(self, repo_base=""):
-        self.tools_link = "https://github.com/smart-data-models/tools"  # Value di base
-        self.repositories = []  # Contiene la lista delle cartelle contententi le repo (I VARI DOMINI)
+        self.tools_link = "https://github.com/smart-data-models/tools"
+        self.repositories = []
         if repo_base == "":
-            self.repo_base = os.path.dirname(__file__) + "/Domains/"  # uri del progetto
+            self.repo_base = os.path.dirname(__file__) + "/Domains/"
         else:
             self.repo_base = repo_base + "/Domains/"
-        self.last_repo = ""  # l'ultimo valore inserito in self.repositories
+        self.last_repo = ""
         self.definition_schemas = {}
 
-    # PUBLIC
-    # Scarica i tools dal link (Non sembrano essere molto utili)
     def get_tools(self):
         if not os.path.isdir("tools/"):
             Repo.clone_from("https://github.com/smart-data-models/tools.git", "tools/")
 
-    # FONDAMENTALE - Scarica repository dal link, e la scarica in abs_path/{folder_name}
-    # Attenzione: scarica anche le repository considerate submodules
     def get_repo(self, link, folder_name=""):
         name = folder_name
         if folder_name == "":
@@ -36,11 +29,9 @@ class Loader:
             self._load_repository(link, name)
         self.last_repo = name + "/"
 
-    # Aggiorna self.last_repo con un altro nome di dominio
     def change_base(self, repo_folder):
         self.last_repo = repo_folder
 
-    # Path della cartella attualmente aperta (ultima repository utilizzata)
     def get_last_folder(self):
         return self.repo_base + self.last_repo
 
@@ -50,7 +41,6 @@ class Loader:
     def set_last_folder(self, folder):
         self.last_repo = folder
 
-    # Cancella TUTTE le repository scaricate
     def delete_local_data(self, also_tools=True):
         for repo in self.repositories:
             if os.path.isdir(self.repo_base + repo + "/"):
@@ -93,8 +83,6 @@ class Loader:
 
         return schemas_per_subdomain
 
-    # PRIVATE
-    # Inutilizzata - mi dice se folder contiene un file schema.json
     def _has_schema(self, folder):
         return os.path.exists(os.path.join(folder, "schema.json")) or os.path.exists(
             os.path.join(folder, "schema.jsonld"))
@@ -130,7 +118,7 @@ class Loader:
 
         for f in files:
             tested = os.path.join(folder, f)
-            if os.path.isfile(tested) and re.search("schema", f):# f.endswith('schema.json'):#and f.startswith('schema.json'):
+            if os.path.isfile(tested) and re.search("schema", f):
                 if f == "schema.json":
                     out.append(tested)
                 else:
@@ -145,7 +133,6 @@ class Loader:
 
         return out, def_schemas
 
-    # Create repository and, eventually, download all repository under the umbrella
     def _load_repository(self, link, repo_name="Repo"):
         Repo.clone_from(link, self.repo_base + repo_name + "/")
         gitmodule_uri = self._search_gitmodule(self.repo_base + repo_name)
@@ -166,9 +153,6 @@ class Loader:
                 return os.path.join(root, ".gitmodules")
         return None
 
-
-
-    # If present, get all links from file .gitmodules
     def _read_gitmodules(self, gitmodules_path):
         links = []
 

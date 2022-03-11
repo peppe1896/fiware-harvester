@@ -12,7 +12,8 @@ class Harvester:
                  base_link="https://github.com/smart-data-models/",
                  domains=None,
                  download_folder="",
-                 result_folder=""):
+                 result_folder="",
+                 database = None):
 
         if domains is None:
             domains = [
@@ -41,7 +42,10 @@ class Harvester:
             self.result_folder = result_folder
         os.makedirs(self.result_folder[:-1], exist_ok=True)
         self.blacklist_schemas = ["geometry-schema.json", "schema.org.json"]
-        self.db_helper = db_helper.Db_schema_helper(self.result_folder)
+        if database is None:
+            self.db_helper = db_helper.Db_schema_helper(self.result_folder)
+        else:
+            self.db_helper = database
         self.base_link = base_link
         self.timestamp = datetime.datetime.today()
         self.location_schemas = None
@@ -53,8 +57,6 @@ class Harvester:
         else:
             self.load_created_dict()
         self.schema_reader = s4c.Schema_interpreter(result_folder=self.result_folder)
-        self._clean_location_schema()
-        self.create_db_from_dict()
 
     def dict_already_exists(self):
         return os.path.exists(self.result_folder + "schemas_location.json")
@@ -75,32 +77,10 @@ class Harvester:
         for _key in _keys_to_delete:
             self.location_schemas.pop(_key)
 
-
-    def create_db_from_dict(self):
-        _columns = ["Domain", "Subdomain", "Model", "jsonschema", "time", "version"]
-        if not os.path.exists(self.result_folder+"db_schema-pandas.json"):
-            self.pandas_dataframe = pd.DataFrame(columns=_columns)
-            for domain in self.location_schemas.keys():
-                for subdomain in self.location_schemas[domain].keys():
-                    for model in self.location_schemas[domain][subdomain].keys():
-                        #with open(self.location_schemas[domain][subdomain])
-                        _schema_link = self.location_schemas[domain][subdomain][model]
-                        with open(_schema_link) as _json_schema:
-                            _schema_content = _json_schema.read()
-
-                        self.schema_reader.procedure(_schema_link, domain, subdomain, model)
-                        _scalar_attr = self.schema_reader.get_scalar_attribute()
-                        _attributes = self.schema_reader.get_attributes()
-                        _errors = self.schema_reader.get_errors()
-
-                        self.db_helper.add_tuple((domain, subdomain, model, _scalar_attr["$schemaVersion"], _attributes, _errors, _schema_content, self.timestamp))
-
-                        _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":[_schema_content], "time":[self.timestamp], "version":[_scalar_attr["$schemaVersion"]]}
-                        _append = pd.DataFrame(_row, columns=_columns)
-                        self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
-            with open(self.result_folder+"db_schema-pandas.json", "w") as file:
-                _temp = self.pandas_dataframe.to_json(indent=2, force_ascii=False)
-                file.write(_temp)
+    def create_db_from_dict(self, create_pandas=False, also_wrongs=False):
+        self._clean_location_schema()
+        if create_pandas:
+            self._create_pandas()
         else:
             for domain in self.location_schemas.keys():
                 for subdomain in self.location_schemas[domain].keys():
@@ -109,18 +89,45 @@ class Harvester:
                         with open(_schema_link) as _json_schema:
                             _schema_content = _json_schema.read()
                         self.schema_reader.procedure(_schema_link, domain, subdomain, model)
-                        if model not in self.schema_reader.get_wrongs():
+                        if model not in self.schema_reader.get_wrongs() or also_wrongs:
                             _scalar_attr = self.schema_reader.get_scalar_attribute()
                             _attributes = str(self.schema_reader.get_attributes())
                             _errors = str(self.schema_reader.get_errors())
-
-                            _esit, return_msg = self.db_helper.add_tuple((domain, subdomain, model, _scalar_attr["$schemaVersion"], _attributes, _errors, _schema_content, self.timestamp))
+                            _attr_log = str(self.schema_reader.get_attributes_log())
+                            _esit, return_msg = self.db_helper.add_tuple((domain, subdomain, model,
+                                                                          _scalar_attr["$schemaVersion"], _attributes,
+                                                                          _errors, _attr_log, _schema_content, self.timestamp))
                             if not _esit:
                                 print(return_msg)
                                 if input("Would you like to continue?") in ["False", "false", "no", "No", "NO", "FALSE"]:
                                     return
-                        else:
-                            a = None
+
+    def _create_pandas(self):
+        _columns = ["Domain", "Subdomain", "Model", "jsonschema", "time", "version"]
+        if not os.path.exists(self.result_folder+"db_schema-pandas.json"):
+            self.pandas_dataframe = pd.DataFrame(columns=_columns)
+            for domain in self.location_schemas.keys():
+                for subdomain in self.location_schemas[domain].keys():
+                    for model in self.location_schemas[domain][subdomain].keys():
+                        _schema_link = self.location_schemas[domain][subdomain][model]
+                        with open(_schema_link) as _json_schema:
+                            _schema_content = _json_schema.read()
+
+                        self.schema_reader.procedure(_schema_link, domain, subdomain, model)
+                        _scalar_attr = self.schema_reader.get_scalar_attribute()
+                        _attributes = self.schema_reader.get_attributes()
+                        _errors = self.schema_reader.get_errors()
+                        _attr_log = str(self.schema_reader.get_attributes_log())
+                        self.db_helper.add_tuple((domain, subdomain, model,
+                                                  _scalar_attr["$schemaVersion"], _attributes,
+                                                  _errors, _attr_log, _schema_content, self.timestamp))
+
+                        _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":[_schema_content], "time":[self.timestamp], "version":[_scalar_attr["$schemaVersion"]]}
+                        _append = pd.DataFrame(_row, columns=_columns)
+                        self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
+            with open(self.result_folder+"db_schema-pandas.json", "w") as file:
+                _temp = self.pandas_dataframe.to_json(indent=2, force_ascii=False)
+                file.write(_temp)
 
     def load_required_files(self):
         for domain in self.domains:
@@ -151,7 +158,3 @@ class Harvester:
         _keys_to_clean = ["AllSubjects", "ontologies_files"]
         with open(self.result_folder+"schemas_location.json", "w") as file:
             json.dump(self.location_schemas, file, indent=2)
-
-    def query_db(self, query):
-        print(self.db_helper.perform_query(query))
-#h = harvester()

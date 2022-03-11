@@ -13,8 +13,8 @@
    "service_path":"",
    "d_attributes":[
       {
-         "value_name":"{NOME DELLA PROPRIETA'}",
-         "data_type":"{STRING..}",
+         "value_name":"",
+         "data_type":"",
          "value_type":"",
          "value_unit":"",
          "healthiness_criteria":"refresh_rate",
