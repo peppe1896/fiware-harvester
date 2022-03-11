@@ -70,7 +70,7 @@ class Harvester:
             _schema = self.location_schemas["0"]["0"][_definition_schema]
             self.schema_reader.procedure(_schema, None, None, None)
         for _schema in self.location_schemas["data-models"]["common-schemas"]:
-            _name = _schema.rsplit("/")[-1]
+            _name = os.path.basename(_schema)#_schema.rsplit("/")[-1]
             if _name not in self.blacklist_schemas:
                 self.schema_reader.procedure(_schema, None, None, None)
         _keys_to_delete = ["data-models", "0"]
@@ -86,7 +86,7 @@ class Harvester:
                 for subdomain in self.location_schemas[domain].keys():
                     for model in self.location_schemas[domain][subdomain].keys():
                         _schema_link = self.location_schemas[domain][subdomain][model]
-                        with open(_schema_link) as _json_schema:
+                        with open(_schema_link, encoding="utf8") as _json_schema:
                             _schema_content = _json_schema.read()
                         self.schema_reader.procedure(_schema_link, domain, subdomain, model)
                         if model not in self.schema_reader.get_wrongs() or also_wrongs:

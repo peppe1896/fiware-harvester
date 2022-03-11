@@ -9,9 +9,9 @@ class Loader:
         self.tools_link = "https://github.com/smart-data-models/tools"
         self.repositories = []
         if repo_base == "":
-            self.repo_base = os.path.dirname(__file__) + "/Domains/"
+            self.repo_base = os.path.dirname(__file__) + "Domains/"
         else:
-            self.repo_base = repo_base + "/Domains/"
+            self.repo_base = repo_base + "Domains/"
         self.last_repo = ""
         self.definition_schemas = {}
 

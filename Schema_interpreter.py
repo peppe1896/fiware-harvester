@@ -86,7 +86,7 @@ class Schema_interpreter:
             self.schema_valid = "INVALID-"
             raise Schema_exception(f"Error: {self.schema_uri} doesn't exist! THIS SCHEMA IS INVALID-!")
 
-        with open(self.schema_uri) as schema:
+        with open(self.schema_uri, encoding="utf8") as schema:
             _raw_schema = json.load(schema)
             if self._is_definition_schema(_raw_schema):
                 self.subdomain_common_schema_uri.append(self.schema_uri)
@@ -611,7 +611,7 @@ class Schema_interpreter:
         for error in self.errors:
             self.schema_details += f"\t{error}\n"
         os.makedirs(_dir, exist_ok=True)
-        with open(_dir + f"/{self.schema_valid}{self.model}_Analysis.txt", "w") as details:
+        with open(_dir + f"/{self.schema_valid}{self.model}_Analysis.txt", "w",encoding="utf8") as details:
             details.write(self.schema_details)
         shutil.copyfile(self.schema_uri, f"{_dir}/schema_"+re.sub('\.','-',self.scalar_attributes['$schemaVersion'])+".json")
         self.schema_details = ""

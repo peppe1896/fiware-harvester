@@ -11,8 +11,8 @@ import Db_schema_helper as db
 
 # Da testare fuori da ambiente linux. Potrebbe non funzionare per via del separatore "/" negli uri
 base_link = "https://github.com/smart-data-models/"             # Don't change
-download_folder = "/media/giuseppe/Archivio2/Download"
-result_folder = os.path.dirname(__file__) + "/Results/"
+download_folder = os.path.dirname(__file__)+ "/Download/"       # Must end with /
+result_folder = os.path.dirname(__file__)+ "/Results/"          # Must end with /
 domains = [
     "data-models",
     "SmartCities",
@@ -34,6 +34,8 @@ domains = [
 if __name__ == "__main__":
     h = None
     db_helper = None
+    os.makedirs(download_folder, exist_ok=True)
+    os.makedirs(result_folder, exist_ok=True)
     while True:
         if db_helper is None:
             db_helper = db.Db_schema_helper(result_folder)
