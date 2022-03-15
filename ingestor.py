@@ -45,7 +45,6 @@ class Ingestor():
         _triple = self.model_parser.get_results()
         return _triple
 
-    # Bisogna creare qui il sistema di regole
     def analize_results(self, triple):
         _correct_payloads = triple[0]
         _uncorrect_payloads = triple[1]
