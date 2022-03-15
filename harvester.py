@@ -1,10 +1,10 @@
-import Loader as ld
+import loader as ld
 import datetime
 import os
 import pandas as pd
 import json
-import Db_schema_helper as db_helper
-import Schema_interpreter as s4c
+import db_schema_helper as db_helper
+import schema_interpreter as s4c
 
 class Harvester:
 
@@ -32,7 +32,7 @@ class Harvester:
                 "SmartManufacturing"]
         self.domains = domains
         if download_folder == "":
-            self.download_folder = "/media/giuseppe/Archivio2/Download"   # Where to downaload Repos
+            self.download_folder = "/media/giuseppe/Archivio2/Download/"   # Where to downaload Repos
         else:
             self.download_folder = download_folder
         self.loader = ld.Loader(self.download_folder)
@@ -66,16 +66,18 @@ class Harvester:
             self.location_schemas = json.load(file)
 
     def _clean_location_schema(self):
-        for _definition_schema in self.location_schemas["0"]["0"]:
-            _schema = self.location_schemas["0"]["0"][_definition_schema]
-            self.schema_reader.procedure(_schema, None, None, None)
-        for _schema in self.location_schemas["data-models"]["common-schemas"]:
-            _name = os.path.basename(_schema)#_schema.rsplit("/")[-1]
-            if _name not in self.blacklist_schemas:
+        if "0" in self.location_schemas.keys():
+            for _definition_schema in self.location_schemas["0"]["0"]:
+                _schema = self.location_schemas["0"]["0"][_definition_schema]
                 self.schema_reader.procedure(_schema, None, None, None)
+        if "data-models" in self.location_schemas.keys():
+            for _schema in self.location_schemas["data-models"]["common-schemas"]:
+                _name = os.path.basename(_schema)#_schema.rsplit("/")[-1]
+                if _name not in self.blacklist_schemas:
+                    self.schema_reader.procedure(_schema, None, None, None)
         _keys_to_delete = ["data-models", "0"]
         for _key in _keys_to_delete:
-            self.location_schemas.pop(_key)
+            self.location_schemas.pop(_key, None)
 
     def create_db_from_dict(self, create_pandas=False, also_wrongs=False):
         self._clean_location_schema()
@@ -91,10 +93,10 @@ class Harvester:
                         self.schema_reader.procedure(_schema_link, domain, subdomain, model)
                         if model not in self.schema_reader.get_wrongs() or also_wrongs:
                             _scalar_attr = self.schema_reader.get_scalar_attribute()
-                            _attributes = str(self.schema_reader.get_attributes())
+                            _attributes = str(self.schema_reader.get_s4c_attrs())
                             _errors = str(self.schema_reader.get_errors())
                             _attr_log = str(self.schema_reader.get_attributes_log())
-                            _esit, return_msg = self.db_helper.add_tuple((domain, subdomain, model,
+                            _esit, return_msg = self.db_helper.add_model((domain, subdomain, model,
                                                                           _scalar_attr["$schemaVersion"], _attributes,
                                                                           _errors, _attr_log, _schema_content, self.timestamp))
                             if not _esit:
@@ -115,10 +117,10 @@ class Harvester:
 
                         self.schema_reader.procedure(_schema_link, domain, subdomain, model)
                         _scalar_attr = self.schema_reader.get_scalar_attribute()
-                        _attributes = self.schema_reader.get_attributes()
+                        _attributes = self.schema_reader.get_s4c_attrs()
                         _errors = self.schema_reader.get_errors()
                         _attr_log = str(self.schema_reader.get_attributes_log())
-                        self.db_helper.add_tuple((domain, subdomain, model,
+                        self.db_helper.add_model((domain, subdomain, model,
                                                   _scalar_attr["$schemaVersion"], _attributes,
                                                   _errors, _attr_log, _schema_content, self.timestamp))
 

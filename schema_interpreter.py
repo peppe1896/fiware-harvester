@@ -2,7 +2,8 @@ import json
 import os
 import shutil
 import re
-from Schema_exceptions import Schema_exception
+from schema_exceptions import Schema_exception
+
 
 class Schema_interpreter:
 
@@ -20,9 +21,9 @@ class Schema_interpreter:
         self.domain = domain
         self.subdomain = subdomain
         self.model = model
-        self.attribute_type = None                              # Type property (Building, etc)
+        self.attribute_type = None  # Type property (Building, etc)
         self.schema_uri = schema_uri
-        self.subdomain_common_schema_uri = []                   # Can exist some definitions schema into a domain
+        self.subdomain_common_schema_uri = []  # Can exist some definitions schema into a domain
         self.raw_schema = None
         self.scalar_attributes = {
             "title": "-DEFAULT TITLE-",
@@ -31,8 +32,8 @@ class Schema_interpreter:
             "$id": "-DEFAULT ID-",
             "$schemaVersion": "-DEFAULT SCHEMA VERSION-",
             "modelTags": "-DEFAULT TAGS-",
-            "type":"-DEFAULT TYPE-",
-            "derivedFrom":"-DEFAULT DERIVEDFROM",
+            "type": "-DEFAULT TYPE-",
+            "derivedFrom": "-DEFAULT DERIVEDFROM",
             "license": "-DEFAULT LICENSE",
             "required": "-DEFAULT REQUIREMENTS-"
         }
@@ -40,21 +41,20 @@ class Schema_interpreter:
             self.constraint_schema = ["allOf", "anyOf", "oneOf", "not"]
         else:
             self.constraint_schema = constraint_schema
-        self.external_ref = []                      # References from definitions schema
-        self.schema_type = "object"                 # Normally it's "object"
-        self.raw_attributes = {"$ref":[]}
+        self.external_ref = []  # References from definitions schema
+        self.schema_type = "object"  # Normally it's "object"
+        self.raw_attributes = {"$ref": []}
         self.schema_details = ""
-        self.schema_valid = ""                      # append this to the end of the file that save schema_details
+        self.schema_valid = ""  # append this to the end of the file that save schema_details
         self.properties = None
         self.errors = []
-        self.common_definitions = []                # Definitions keys of all definitions schema inside a subdomain
+        self.common_definitions = []  # Definitions keys of all definitions schema inside a subdomain
         self.definition_schema = False
         self.schemas_commons = []
         self.analyzed_attrs = {}
         self.attributes_log = {}
         self.wrong_models = []
-        self.unresetted_errors = {}                 # Error saved during exception launch
-
+        self.unresetted_errors = {}  # Error saved during exception launch
 
     # Procedure istanzia un nuovo modello - Può essere chiamato da fuori contenendo questo oggetto
     def procedure(self, schema_uri, domain, subdomain, model):
@@ -110,7 +110,7 @@ class Schema_interpreter:
             return True
 
     def _validate_schema_structure(self):
-        if len(self.raw_schema.keys())>0:
+        if len(self.raw_schema.keys()) > 0:
             self.schema_details += "ATTENTION: raw schema can't be recognized in all of its attributes. Please check it by yoursef.\n"
             _keys_to_delete = []
             for _unkn_key in self.raw_schema.keys():
@@ -123,7 +123,7 @@ class Schema_interpreter:
             self.schema_details += "\n"
             for _key in _keys_to_delete:
                 self.raw_schema.pop(_key)
-        if len(self.raw_schema.keys())==0:
+        if len(self.raw_schema.keys()) == 0:
             if self.properties is None:
                 self.schema_details += "This schema is non common, because properties are 'None' (not found).\n"
                 print(self.schema_uri + " haven't an attribute 'properties'.")
@@ -132,13 +132,14 @@ class Schema_interpreter:
             self.schema_valid = "INVALID-"
             self.schema_details += f"- ATTENTION: unable recognize the following keys. [{str(self.raw_schema.keys())}]"
             self.errors.append(f"- Error: unable recognize the following keys. [{str(self.raw_schema.keys())}]")
-            raise Schema_exception(f"Raw schema can't be recognized in all of its attributes.\n\tAttributes '{str(self.raw_schema.keys())}' hasn't been recognized")
+            raise Schema_exception(
+                f"Raw schema can't be recognized in all of its attributes.\n\tAttributes '{str(self.raw_schema.keys())}' hasn't been recognized")
 
     def _control_standardized_schema(self):
-        if self.scalar_attributes["type"] != "object" :
+        if self.scalar_attributes["type"] != "object":
             self.schema_details += f"Attention: this schema is not OBJECT. It's {self.schema_type} . THIS SCHEMA IS INVALID-\n"
             self.errors.append(f"- Attention: Schema is not an 'object', but '{self.schema_type}' So its wrong.")
-                 # Delete "type" attribute (this "type" is nomally object, and its not reffered to true "type" in propierties)
+            # Delete "type" attribute (this "type" is nomally object, and its not reffered to true "type" in propierties)
         elif "definitions" in self.raw_schema.keys():
             self.schema_details += "This schema is a definition schema. It contains definitions (collections of objects), " \
                                    " instead of attributes! This definitions will be loaded.\n"
@@ -158,16 +159,17 @@ class Schema_interpreter:
             self.properties = self.find_from_schema("properties", delete=True)[0]
         else:
             if _constraint != "allOf":
-                self.errors.append(f"- Attention: container for properties should be 'allOf', instead of '{_constraint}'.")
+                self.errors.append(
+                    f"- Attention: container for properties should be 'allOf', instead of '{_constraint}'.")
             self.properties = self.find_from_schema(_constraint, True)[0]
         _general_constraint = self._check_constraint(self.raw_schema.keys())
         if _general_constraint is not None:
-            _temp = {"properties":self.properties}
+            _temp = {"properties": self.properties}
             self.raw_schema[_general_constraint].append(_temp)
             self.properties = self.raw_schema.pop(_general_constraint)
         for key in self.scalar_attributes.keys():
             if key not in self.raw_schema.keys():
-                #self.schema_details += "ATTENTION: the attribute  " + str(key) + " can be wrong. Check it by yourself.\n"
+                # self.schema_details += "ATTENTION: the attribute  " + str(key) + " can be wrong. Check it by yourself.\n"
                 _temp, _path = self.find_from_schema(key, True)
                 if _temp is not None:
                     self.scalar_attributes[key] = _temp
@@ -181,7 +183,8 @@ class Schema_interpreter:
                                 self.scalar_attributes[key] = self.properties[_iterator].pop(key)
                                 if key == "required":
                                     if "type" not in self.scalar_attributes["required"]:
-                                        self.errors.append("- Error: 'required' attribute is wrong (in scalar attribute).")
+                                        self.errors.append(
+                                            "- Error: 'required' attribute is wrong (in scalar attribute).")
                                         self.scalar_attributes[key] = []
                                         _key_found = False
                                         self.properties[_iterator][key] = self.scalar_attributes[key]
@@ -224,13 +227,13 @@ class Schema_interpreter:
             _iterators_to_delete = []
             for _property in _properties:
                 if type(_property) is dict:
-                    if "$ref" in _property.keys() and len(_property.keys())==1:
+                    if "$ref" in _property.keys() and len(_property.keys()) == 1:
                         if not self._is_known_ref(_property["$ref"]):
                             self.errors.append(f"- Error: $ref is unknown. $ref='{_property['$ref']}'")
                         else:
                             self.raw_attributes["$ref"].append(_property['$ref'])
                             _iterators_to_delete.append(_property)
-                    elif "$ref" in _property.keys() and len(_property.keys())>1:
+                    elif "$ref" in _property.keys() and len(_property.keys()) > 1:
                         if not self._is_known_ref(_property["$ref"]):
                             self.errors.append(f"- Error: $ref is unknown. $ref='{_property['$ref']}'")
                         else:
@@ -255,11 +258,12 @@ class Schema_interpreter:
                                     self.errors.append(f"- Error: look in '{_field}' of 'properties'")
                         for _field in _fields_to_delete:
                             _property.pop(_field)
-                        if not len(_property)==0:
+                        if not len(_property) == 0:
                             self.errors.append(f"- Error: '[{str(_property)}]' hasn't been recognized.")
 
                 else:
-                    self.errors.append(f"- Error: expected dictionary, but found a wrong list of lists: '{str(_properties)}' ")
+                    self.errors.append(
+                        f"- Error: expected dictionary, but found a wrong list of lists: '{str(_properties)}' ")
                     print(f"This ___ should be a dict")
             for _delete in _iterators_to_delete:
                 _properties.remove(_delete)
@@ -290,20 +294,22 @@ class Schema_interpreter:
     def _is_constraint_attribute(self, attribute, attribute_name):
         _eventually_constraint = self._check_constraint(attribute.keys())
         if _eventually_constraint is not None:
-            _iterator = len(attribute[_eventually_constraint])-1
+            _iterator = len(attribute[_eventually_constraint]) - 1
             _temp_type = ""
-            while _iterator>=0:
+            while _iterator >= 0:
                 _item = attribute[_eventually_constraint][_iterator]
                 if "type" not in _item.keys():
                     if "$ref" not in _item.keys():
                         if not self._check_constraint(_item.keys()):
-                            self.errors.append(f"- Error: '{attribute_name}' is not an attribute. {attribute_name}=[{str(_item)}].")
+                            self.errors.append(
+                                f"- Error: '{attribute_name}' is not an attribute. {attribute_name}=[{str(_item)}].")
                             return False
                 else:
                     if _temp_type == "":
                         _temp_type = _item["type"]
                     elif _temp_type != _item["type"]:
-                        self.errors.append(f"- Attention: {attribute_name} may be wrong because all of the attributes haven't the same value type.")
+                        self.errors.append(
+                            f"- Attention: {attribute_name} may be wrong because all of the attributes haven't the same value type.")
                 _iterator -= 1
         # Ok if i pass here, attribute is an Real attribute of the form allOf[{..},{...}]
         if not "description" in attribute.keys():
@@ -321,7 +327,8 @@ class Schema_interpreter:
                 else:
                     self.schema_details += "Error: this schema already have a type. Please check the schema.json."
                     self.schema_valid = "INVALID-"
-                    self.errors.append("- Error: found two type definition for this model (wrong, only one is expected)")
+                    self.errors.append(
+                        "- Error: found two type definition for this model (wrong, only one is expected)")
         _properties_to_delete = []
         for _property in _properties.keys():
             if type(_properties[_property]) is dict:
@@ -341,7 +348,8 @@ class Schema_interpreter:
             else:
                 self.schema_details += f"{_property} is not a dict. Please check schema.json.\n"
                 self.schema_valid = "INVALID-"
-                self.errors.append(f"- Error: attribute {str(_property)} isn't a dictionary (expected to be a dictionary)")
+                self.errors.append(
+                    f"- Error: attribute {str(_property)} isn't a dictionary (expected to be a dictionary)")
         for _property in _properties_to_delete:
             _properties.pop(_property)
 
@@ -354,10 +362,10 @@ class Schema_interpreter:
         return False
 
     def _calculate_errors(self):
-        self._escape_attributes_name()          # verifica i nomi di ogni singolo attributo (fai l'escape)
-        self._check_required()                  # verifica che ci siano tutti gli attributi
-        self._localization_check()              # scrivi quando manca l'attributo di localizzazione
-                                                # (questa operazione viene fatta in check required)
+        self._escape_attributes_name()  # verifica i nomi di ogni singolo attributo (fai l'escape)
+        self._check_required()  # verifica che ci siano tutti gli attributi
+        self._localization_check()  # scrivi quando manca l'attributo di localizzazione
+        # (questa operazione viene fatta in check required)
         self._check_remains()
 
     def _escape_attributes_name(self):
@@ -368,11 +376,18 @@ class Schema_interpreter:
             _escaped_key = re.sub("[']", "", _escaped_key)
             _temp_attributes[_escaped_key] = self.raw_attributes[_attr_key]
         self.raw_attributes = _temp_attributes
+        _temp_attributes_2 = {}
+        for _attr_key in self.analyzed_attrs.keys():
+            _escaped_key = re.sub("[><=;()]", "", _attr_key)
+            _escaped_key = re.sub('["]', "", _escaped_key)
+            _escaped_key = re.sub("[']", "", _escaped_key)
+            _temp_attributes_2[_escaped_key] = self.analyzed_attrs[_attr_key]
+        self.analyzed_attrs = _temp_attributes_2
 
     def _check_required(self):
         _required = self.scalar_attributes["required"]
         for requirement in _required:
-            if requirement not in self.external_ref:   # Known referenced
+            if requirement not in self.external_ref:  # Known referenced
                 if requirement not in self.raw_attributes.keys():
                     if requirement not in self.common_definitions:
                         self.errors.append(f"- Attention: missing requirement '{requirement}'")
@@ -428,7 +443,7 @@ class Schema_interpreter:
         result = self.find_key_from_dict(target_key, False, attribute, path)
         return result, path
 
-    def find_from_path(self, path:list):
+    def find_from_path(self, path: list):
         if len(path) == 0:
             return None
         result, full_result, goal = self._path_composer(path)
@@ -436,9 +451,9 @@ class Schema_interpreter:
         if result is None:
             if type(full_result) is dict:
                 if goal in full_result.keys():
-                    return full_result[goal]        # Single key in an attribute
+                    return full_result[goal]  # Single key in an attribute
                 else:
-                    return full_result              # Attribute selected
+                    return full_result  # Attribute selected
             elif type(full_result) is list:
                 if goal in full_result:
                     return goal
@@ -447,7 +462,7 @@ class Schema_interpreter:
         else:
             return result
 
-    def find_key_from_dict(self, target_key, delete, entry_dict:dict, path):
+    def find_key_from_dict(self, target_key, delete, entry_dict: dict, path):
         for _key in entry_dict.keys():
             if _key == target_key:
                 path.append(_key)
@@ -489,7 +504,7 @@ class Schema_interpreter:
 
                         else:
                             _path.append(new_index)
-                #_path.append(new_index)
+                # _path.append(new_index)
             elif type(temp[last]) is dict:
                 temp = temp[last]
 
@@ -503,7 +518,7 @@ class Schema_interpreter:
         else:
             return None, temp, goal
 
-    def print_path(self, path:list):
+    def print_path(self, path: list):
         temp = ""
         last = path.pop()
         for level in path:
@@ -523,6 +538,7 @@ class Schema_interpreter:
             _ref_link = []
             _iterator = len(_ref_list) - 1
             _path = []
+            _common_schema = ""
             if _iterator <= 0:
                 print(f"Ref {_ref} is not defined. Please check if it's referred in another extra schema.")
                 self.schema_details += f"\t- Ref {_ref} is not a recognizable reference\n"
@@ -588,13 +604,16 @@ class Schema_interpreter:
                     self.schema_details += f"\tRaw attribute: \n\t{attribute}\n\tUse a json formatter for read attribute.\n"
                 elif "$ref" in attribute.keys():
                     if not self._is_known_ref(attribute["$ref"]):
-                        self.errors.append(f"- Error: '{attribute_name}' contains an unknown reference: '{attribute['$ref']}'")
+                        self.errors.append(
+                            f"- Error: '{attribute_name}' contains an unknown reference: '{attribute['$ref']}'")
                 else:
                     self.errors.append(f"- Error: unrecognized attribute. Name: '{attribute_name}'")
             elif type(attribute) is list:
-                self.errors.append(f"- Error: something went wrong in attribute '{attribute_name} - This attribute is a 'list'.")
+                self.errors.append(
+                    f"- Error: something went wrong in attribute '{attribute_name} - This attribute is a 'list'.")
             else:
-                self.errors.append(f"- Error: something went wrong in attribute '{attribute_name} - This attribute is '{type(attribute)}'")
+                self.errors.append(
+                    f"- Error: something went wrong in attribute '{attribute_name} - This attribute is '{type(attribute)}'")
         else:
             self.errors.append(f"- Error: '{attribute_name}' is not an attribute.")
 
@@ -611,12 +630,13 @@ class Schema_interpreter:
         for error in self.errors:
             self.schema_details += f"\t{error}\n"
         os.makedirs(_dir, exist_ok=True)
-        with open(_dir + f"/{self.schema_valid}{self.model}_Analysis.txt", "w",encoding="utf8") as details:
+        with open(_dir + f"/{self.schema_valid}{self.model}_Analysis.txt", "w", encoding="utf8") as details:
             details.write(self.schema_details)
-        shutil.copyfile(self.schema_uri, f"{_dir}/schema_"+re.sub('\.','-',self.scalar_attributes['$schemaVersion'])+".json")
+        shutil.copyfile(self.schema_uri,
+                        f"{_dir}/schema_" + re.sub('\.', '-', self.scalar_attributes['$schemaVersion']) + ".json")
         self.schema_details = ""
 
-    def get_attributes(self):
+    def get_raw_attributes(self):
         return self.raw_attributes
 
     # Adattamento degli attributi per essere salvati in un database che abbia i seguenti attributi:
@@ -633,8 +653,8 @@ class Schema_interpreter:
     # Andrebbero completati per aggiungere informazioni ai log su vari schema (non utile, solo bello da vedere se completo)
 
     def _manage_array(self, attribute, attribute_name):
-        _value_type = ""
-        _data_type = ""
+        _value_type = "-"
+        _data_type = "-"
         _temp_log = [f"Log of {attribute_name}"]
         if "items" in attribute.keys():
             if type(attribute["items"]) is dict:
@@ -644,8 +664,6 @@ class Schema_interpreter:
                         if "type" in attribute["items"].keys():
                             if type(attribute["items"]["type"]) is str:
                                 _data_type = attribute["items"]["type"]
-                            else:
-                                a = None
                 else:
                     _first_edit = True
                     _items = attribute["items"][_eventually_constraint]
@@ -659,7 +677,7 @@ class Schema_interpreter:
                                             _data_type = _temp
                                             _first_edit = False
                                         else:
-                                            _data_type = ""
+                                            _data_type = "-"
                                 else:
                                     a = None
                             if "format" in item.keys():
@@ -670,15 +688,15 @@ class Schema_interpreter:
                     if type(_temp) is str:
                         _data_type = _temp
         _new_attribute = {
-            "value_name" : f"{attribute_name}",
+            "value_name": f"{attribute_name}",
             "data_type": f"{_data_type}",
-            "value_type":f"{_value_type}",
-            "value_unit":"",
-            "healthiness_criteria":"refresh_rate",  # Standard
-            "healthiness_value":"300",              # Standard
-            "editable": "0",                        # Standard
+            "value_type": f"{_value_type}",
+            "value_unit": "",
+            "healthiness_criteria": "refresh_rate",  # Standard
+            "healthiness_value": "300",  # Standard
+            "editable": "0",  # Standard
             "checked": "False",
-            "raw_attribute":attribute
+            "raw_attribute": attribute
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
@@ -696,7 +714,7 @@ class Schema_interpreter:
                     self.schema_details += f"\tItems have to be of type {attribute['items']['type']}\n"
                 elif "$ref" in attribute["items"].keys():
                     self.schema_details += "\tThis array can contain types referred in this link: "
-                    if self._is_known_ref(attribute["items"]["$ref"]):# in self.known_ref:
+                    if self._is_known_ref(attribute["items"]["$ref"]):  # in self.known_ref:
                         self.schema_details += f"{attribute['items']['$ref']} (This ref is a known one).\n"
                     else:
                         self.schema_details += f"{attribute['items']['$ref']} (Unknown ref).\n"
@@ -727,15 +745,15 @@ class Schema_interpreter:
                 _value_type = "percentage[0,1]"
 
         _new_attribute = {
-            "value_name" : f"{attribute_name}",     # Prendo il nome dell'attributo
+            "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
             "data_type": "float",
             "value_type": f"{_value_type}",
             "value_unit": f"{_value_unit}",
-            "healthiness_criteria":"refresh_rate",  # Standard
-            "healthiness_value":"300",              # Standard
-            "editable": "0",                        # Standard
+            "healthiness_criteria": "refresh_rate",  # Standard
+            "healthiness_value": "300",  # Standard
+            "editable": "0",  # Standard
             "checked": "False",
-            "raw_attribute":attribute
+            "raw_attribute": attribute
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
@@ -743,32 +761,32 @@ class Schema_interpreter:
     def _manage_integer(self, attribute, attribute_name):
         _temp_log = [f"Log of {attribute_name}"]
         _new_attribute = {
-            "value_name" : f"{attribute_name}",     # Prendo il nome dell'attributo
-            "data_type": "integer",                 # Se sono in questo metodo, sono sicuramente un intero
-            "value_type":"",                        # VA INTERPRETATO
-            "value_unit":"number (#)",              # From S4C - integer
-            "healthiness_criteria":"refresh_rate",  # Standard
-            "healthiness_value":"300",              # Standard
-            "editable": "0",                        # Standard
+            "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
+            "data_type": "integer",  # Se sono in questo metodo, sono sicuramente un intero
+            "value_type": "-",  # VA INTERPRETATO
+            "value_unit": "number (#)",  # From S4C - integer
+            "healthiness_criteria": "refresh_rate",  # Standard
+            "healthiness_value": "300",  # Standard
+            "editable": "0",  # Standard
             "checked": "False",
-            "raw_attribute":attribute
+            "raw_attribute": attribute
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
 
     def _manage_boolean(self, attribute, attribute_name):
         _temp_log = [f"Log of {attribute_name}"]
-        _value_type = ""
+        _value_type = "-"
         _new_attribute = {
-            "value_name": f"{attribute_name}",          # Prendo il nome dell'attributo
+            "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
             "data_type": "string",
             "value_type": f"{_value_type}",
             "value_unit": "boolean (bool)",
-            "healthiness_criteria": "refresh_rate",     # Standard
-            "healthiness_value": "300",                 # Standard
-            "editable": "0",                            # Standard
+            "healthiness_criteria": "refresh_rate",  # Standard
+            "healthiness_value": "300",  # Standard
+            "editable": "0",  # Standard
             "checked": "False",
-            "raw_attribute":attribute
+            "raw_attribute": attribute
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
@@ -777,15 +795,15 @@ class Schema_interpreter:
         _temp_log = [f"Log of {attribute_name}"]
         _value_type = "-"
         _new_attribute = {
-            "value_name": f"{attribute_name}",          # Prendo il nome dell'attributo
+            "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
             "data_type": "-",
             "value_type": f"{_value_type}",
             "value_unit": "-",
-            "healthiness_criteria": "refresh_rate",     # Standard
-            "healthiness_value": "300",                 # Standard
-            "editable": "0",                            # Standard
+            "healthiness_criteria": "refresh_rate",  # Standard
+            "healthiness_value": "300",  # Standard
+            "editable": "0",  # Standard
             "checked": "False",
-            "raw_attribute":attribute
+            "raw_attribute": attribute
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
@@ -794,15 +812,15 @@ class Schema_interpreter:
         _temp_log = [f"Log of {attribute_name}"]
         _value_type = "-"
         _new_attribute = {
-            "value_name": f"{attribute_name}",     # Prendo il nome dell'attributo
+            "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
             "data_type": "info",
             "value_type": f"{_value_type}",
             "value_unit": "-",
-            "healthiness_criteria" : "refresh_rate",  # Standard
-            "healthiness_value" : "300",              # Standard
-            "editable": "0",                         # Standard
+            "healthiness_criteria": "refresh_rate",  # Standard
+            "healthiness_value": "300",  # Standard
+            "editable": "0",  # Standard
             "checked": "False",
-            "old_attribute" : attribute
+            "old_attribute": attribute
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
@@ -810,30 +828,30 @@ class Schema_interpreter:
         self.schema_details += f"- {attribute_name} is an object (it's defined by ITS OWN PROPERTIES)"
         if "properties" in attribute.keys():
             pass
-            #self._analyze_attribute(attribute["properties"], attribute_name + "[properties]")
+            # self._analyze_attribute(attribute["properties"], attribute_name + "[properties]")
         elif "$ref" in attribute.keys():
-            #self._analyze_attribute(attribute["$ref"], attribute_name + "[$ref]")
+            # self._analyze_attribute(attribute["$ref"], attribute_name + "[$ref]")
             pass
         elif "type" in attribute.keys():
             a = self._is_attribute(attribute, attribute_name)
             pass
 
     def _manage_string(self, attribute, attribute_name):
-        _value_type = ""
+        _value_type = "-"
         _temp_log = [f"Log of {attribute_name}"]
         if "format" in attribute.keys():
             _temp_log.append(f"Found 'format': {attribute['format']}. It will be default value_type.")
             _value_type = attribute['format']
         _new_attribute = {
-            "value_name" : f"{attribute_name}",     # Prendo il nome dell'attributo
+            "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
             "data_type": "string",
-            "value_type":f"{_value_type}",
-            "value_unit":"-",
-            "healthiness_criteria":"refresh_rate",  # Standard
-            "healthiness_value":"300",              # Standard
-            "editable":"0",                         # Standard
-            "checked":"False",
-            "raw_attribute":attribute
+            "value_type": f"{_value_type}",
+            "value_unit": "-",
+            "healthiness_criteria": "refresh_rate",  # Standard
+            "healthiness_value": "300",  # Standard
+            "editable": "0",  # Standard
+            "checked": "False",
+            "raw_attribute": attribute
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
@@ -843,7 +861,7 @@ class Schema_interpreter:
 
     def _reset(self):
         self.raw_schema = None
-        self.raw_attributes = {"$ref":[]}
+        self.raw_attributes = {"$ref": []}
         self.errors = []
         self.schema_details = ""
         self.definition_schema = False
@@ -858,3 +876,5 @@ class Schema_interpreter:
     def get_attributes_log(self):
         return self.attributes_log
 
+    def get_s4c_attrs(self):
+        return self.analyzed_attrs

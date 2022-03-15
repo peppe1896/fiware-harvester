@@ -4,14 +4,19 @@ import re
 import pandas as pd
 import os
 from jsonschema import validate
+import keyvalueToNormalized as kvtn
+import normalizedToKeyvalue as ntkv
 
-with open("/home/giuseppe/PycharmProjects/auto_downl_ghub/SmartCities/dataModel.Transportation/Road/schema.json") as json_schema:
+with open("/media/giuseppe/Archivio2/Download/Domains/SmartCities/dataModel.UrbanMobility/ArrivalEstimation/schema.json") as json_schema:
     schema = json.load(json_schema)
 
-with open("/home/giuseppe/PycharmProjects/auto_downl_ghub/SmartCities/dataModel.Transportation/Road/examples/example.json") as corr:
+with open("/media/giuseppe/Archivio2/Download/Domains/SmartCities/dataModel.Streetlighting/Streetlight/examples/example-normalized.json") as corr:
     correct = json.load(corr)
 
-print(validate(correct, schema))
+#print(validate(correct, schema))
+
+#a = kvtn.keyValues_2_normalized(correct)
+a = ntkv.normalized_2_keyvalue(correct)
 
 # Expect dictionary
 def find_key_from_dict(self, target_key, delete, entry_list, path):

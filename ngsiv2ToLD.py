@@ -15,7 +15,6 @@ import sys
 import json
 
 from rfc3987 import parse
-from entity_print import print_json_string
 
 etsi_core_context = 'https://uri.etsi.org/ngsi-ld/v1/ngsi-ld-core-context.jsonld'
 
@@ -146,7 +145,6 @@ def read_json(infile):
 
 def write_json(data, outfile):
     with open(outfile, 'w') as data_file:
-        data_file.write(print_json_string(data))
         data_file.write("\n")
 
 
