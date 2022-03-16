@@ -3,14 +3,20 @@ import ast
 import shutil
 import datetime
 import os
+import mysql.connector as connector
 
 
 class Db_schema_helper:
     def __init__(self, db_folder, backup_folder, count_limit=10):
         self.base_folder = db_folder
         self.db_uri = self.base_folder + "db_schema.db"
-        self.connection = sqlite3.connect(self.db_uri)
-        self.cursor = self.connection.cursor()
+        self.connector_sqlite = sqlite3.connect(self.db_uri)
+        self.cursor_sqlite = self.connector_sqlite.cursor()
+        self.connector_mysql = connector.connect(
+            host="localhost:80",
+            user="root",
+            password="my_secret_password"
+        )
         self.backup_base_folder = backup_folder
         self.last_backup = f"db_schema--{str(datetime.datetime.now().replace(microsecond=0).timestamp())[:-2]}.db"
         self.last_command = ""
@@ -18,7 +24,7 @@ class Db_schema_helper:
         self.count_limit = count_limit          # Quando count arriva a count_limit, fa un backup.
 
         try:
-            self.cursor.execute("""CREATE TABLE raw_schema_model
+            self.cursor_sqlite.execute("""CREATE TABLE raw_schema_model
                     (
                         domain TEXT NOT NULL,
                         subdomain TEXT NOT NULL,
@@ -31,7 +37,7 @@ class Db_schema_helper:
                         timestamp TEXT NOT NULL,
                         PRIMARY KEY (domain, subdomain, model, version)
                     );""")
-            self.cursor.execute("""CREATE TABLE default_versions
+            self.cursor_sqlite.execute("""CREATE TABLE default_versions
                     (
                         domain TEXT NOT NULL,
                         subdomain TEXT NOT NULL,
@@ -39,7 +45,7 @@ class Db_schema_helper:
                         defaultVersion TEXT NOT NULL,
                         PRIMARY KEY (domain, subdomain, model)
                     );""")
-            self.connection.commit()
+            self.connector_sqlite.commit()
             self.backup_db("create_db")
         except sqlite3.Error as e:
             if "table raw_schema_model already exists" != e.args[0]:
@@ -68,8 +74,8 @@ class Db_schema_helper:
             _subdomain = tuple[1]
             _model = tuple[2]
             _version = tuple[3]
-            self.cursor.execute('INSERT OR REPLACE INTO raw_schema_model VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', tuple)
-            self.connection.commit()
+            self.cursor_sqlite.execute('INSERT OR REPLACE INTO raw_schema_model VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', tuple)
+            self.connector_sqlite.commit()
             return True, ""
         except sqlite3.Error as e:
             _msg = "Error in DB: " + e.args[0]
@@ -80,8 +86,8 @@ class Db_schema_helper:
         self.backup_db("generic_query")
         self.last_command = "generic_query"
         try:
-            a = self.cursor.execute(query)
-            self.connection.commit()
+            a = self.cursor_sqlite.execute(query)
+            self.connector_sqlite.commit()
             return a.fetchone()
         except sqlite3.Error as e:
             print(e)
@@ -98,8 +104,8 @@ class Db_schema_helper:
         if version:
             _query += f' AND version="{version}"'
         try:
-            a = self.cursor.execute(_query)
-            self.connection.commit()
+            a = self.cursor_sqlite.execute(_query)
+            self.connector_sqlite.commit()
             _dict_str = a.fetchone()
             if _dict_str is not None:
                 res = ast.literal_eval(_dict_str[0])
@@ -121,8 +127,8 @@ class Db_schema_helper:
         if version:
             _query += f' AND version="{version}"'
         try:
-            a = self.cursor.execute(_query)
-            self.connection.commit()
+            a = self.cursor_sqlite.execute(_query)
+            self.connector_sqlite.commit()
             _list_str = a.fetchone()
             if _list_str is not None:
                 res = ast.literal_eval(_list_str[0])
@@ -147,8 +153,8 @@ class Db_schema_helper:
         if domain:
             _query += f' AND domain="{domain}"'
         try:
-            a = self.cursor.execute(_query)
-            self.connection.commit()
+            a = self.cursor_sqlite.execute(_query)
+            self.connector_sqlite.commit()
             res = []
             for json_schema in a:
                 s = ast.literal_eval(json_schema[0])
@@ -170,8 +176,8 @@ class Db_schema_helper:
         if domain:
             _query += f' AND domain="{domain}"'
         try:
-            a = self.cursor.execute(_query)
-            self.connection.commit()
+            a = self.cursor_sqlite.execute(_query)
+            self.connector_sqlite.commit()
             res = []
             for _version in a:
                 res.append(_version)
@@ -197,8 +203,8 @@ class Db_schema_helper:
         if version:
             _query += f' AND version="{version}"'
         try:
-            a = self.cursor.execute(_query)
-            self.connection.commit()
+            a = self.cursor_sqlite.execute(_query)
+            self.connector_sqlite.commit()
             a = a.fetchone()
             if also_attributes_logs:
                 res = ast.literal_eval(a[0])
@@ -233,7 +239,7 @@ class Db_schema_helper:
         self.last_command = actual_command
 
     def restore_db(self):
-        self.connection.commit()
-        self.connection.close()
+        self.connector_sqlite.commit()
+        self.connector_sqlite.close()
         os.remove(self.db_uri)
         shutil.copyfile(self.last_backup, self.db_uri)
