@@ -13,7 +13,7 @@ class Db_schema_helper:
         self.connector_sqlite = sqlite3.connect(self.db_uri)
         self.cursor_sqlite = self.connector_sqlite.cursor()
         self.connector_mysql = connector.connect(
-            host="localhost:80",
+            host="localhost",
             user="root",
             password="my_secret_password"
         )
