@@ -32,19 +32,43 @@ class Parser():
     def execute(self):
         for payload in self.raw_payloads:
             _payload_model = payload["type"]
-            _versions = self.db_helper.get_all_versions(_payload_model)
-            if len(_versions) == 1:
-                _schema = self.db_helper.get_schema(_payload_model, version=str(_versions[0][0]))
+            _vers_subd_dom = self.db_helper.get_all_versions(_payload_model)
+            if len(_vers_subd_dom) == 1:
+                _schema = self.db_helper.get_schema(_payload_model)
                 try:
                     validate(payload, _schema)
                     self.validated_payloads.append(payload)
                 except Exception as e:
                     self.thrown_exceptions.append(e)
                     self.unvalidated_payloads.append(payload)
-            elif len(_versions) == 0:
-                print("No schema found")
+                continue  # Vado al prossimo payload
+            elif len(_vers_subd_dom)>1:
+                _def_vers = self.db_helper.get_default_version(_payload_model)
+                _count = 0
+                for item in _vers_subd_dom:
+                    if item[0] == _def_vers:
+                        _count += 1
+                if _count == 1:
+                    # Allora ho una sola versione che, quindi è univoca la chiave model - default_version
+                    _schema = self.db_helper.get_schema(_payload_model, version=tuple[0])
+                    try:
+                        validate(payload, _schema)
+                        self.validated_payloads.append(payload)
+                    except Exception as e:
+                        self.thrown_exceptions.append(e)
+                        self.unvalidated_payloads.append(payload)
+                    continue    # Vado al prossimo payload
             else:
-                print("Found more versions. Take newer and go below.")
+                _iterator = 0
+                while _iterator < len(_vers_subd_dom):
+                    tuple = _vers_subd_dom[_iterator]       # VERSION - SUBDOMAIN - DOMAIN
+                    _schema = self.db_helper.get_schema(_payload_model, subdomain=tuple[1], domain=tuple[2], version=tuple[0])
+                    try:
+                        validate(payload, _schema)
+                        self.validated_payloads.append(payload)
+                    except Exception as e:
+                        self.thrown_exceptions.append(e)
+                        self.unvalidated_payloads.append(payload)
 
     def get_results(self):
         return [self.validated_payloads, self.unvalidated_payloads, self.thrown_exceptions]

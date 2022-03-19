@@ -1,5 +1,4 @@
 import loader as ld
-import datetime
 import os
 import pandas as pd
 import json
@@ -47,7 +46,6 @@ class Harvester:
         else:
             self.db_helper = database
         self.base_link = base_link
-        self.timestamp = datetime.datetime.today()
         self.location_schemas = None
         self.pandas_dataframe = None
         if not self.dict_already_exists():
@@ -57,6 +55,7 @@ class Harvester:
         else:
             self.load_created_dict()
         self.schema_reader = s4c.Schema_interpreter(result_folder=self.result_folder)
+        self.unsaved_models = []
 
     def dict_already_exists(self):
         return os.path.exists(self.result_folder + "schemas_location.json")
@@ -89,20 +88,24 @@ class Harvester:
                     for model in self.location_schemas[domain][subdomain].keys():
                         _schema_link = self.location_schemas[domain][subdomain][model]
                         with open(_schema_link, encoding="utf8") as _json_schema:
-                            _schema_content = _json_schema.read()
+                            _schema_content = json.load(_json_schema)
                         self.schema_reader.procedure(_schema_link, domain, subdomain, model)
                         if model not in self.schema_reader.get_wrongs() or also_wrongs:
                             _scalar_attr = self.schema_reader.get_scalar_attribute()
-                            _attributes = str(self.schema_reader.get_s4c_attrs())
-                            _errors = str(self.schema_reader.get_errors())
-                            _attr_log = str(self.schema_reader.get_attributes_log())
+                            _attributes = self.schema_reader.get_s4c_attrs()
+                            _errors = self.schema_reader.get_errors()
+                            _attr_log = self.schema_reader.get_attributes_log()
                             _esit, return_msg = self.db_helper.add_model((domain, subdomain, model,
                                                                           _scalar_attr["$schemaVersion"], _attributes,
-                                                                          _errors, _attr_log, _schema_content, self.timestamp))
+                                                                          _errors, _attr_log, _schema_content))
                             if not _esit:
                                 print(return_msg)
                                 if input("Would you like to continue?") in ["False", "false", "no", "No", "NO", "FALSE"]:
                                     return
+                        else:
+                            self.unsaved_models.append((model, subdomain, domain))
+        with open(self.result_folder+"/Unsaved-Models.txt", "w", encoding="utf8") as file:
+            file.write(self.unsaved_models)
 
     def _create_pandas(self):
         _columns = ["Domain", "Subdomain", "Model", "jsonschema", "time", "version"]

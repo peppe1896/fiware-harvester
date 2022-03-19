@@ -577,6 +577,8 @@ class Schema_interpreter:
         return False
 
     def _analyze_attribute(self, attribute, attribute_name):
+        if self.model == "SeaConditions":
+            a= None
         if self._is_attribute(attribute, attribute_name):
             if type(attribute) is dict:
                 self.schema_details += "-> Attribute: \t" + attribute_name + "\n"

@@ -64,7 +64,27 @@ if __name__ == "__main__":
                 a = _ingestor.open_link(_link)
                 _ingestor.analize_results(a)
         elif _input == "db":
-            a = _db_helper.get_attributes("Building", also_attributes_logs=True)
-            b = None
-        else:
+            _command = input("cmd> ")
+            while _command != "exit":
+                if _command == "def_vers":
+                    _model = input("Model: ")
+                    _sub = input("Subdomain: ")
+                    _dom = input("Domain: ")
+                    a = _db_helper.get_default_version(_model, subdomain=_sub)
+                    b = None
+                #a = _db_helper.get_attributes("Building", also_attributes_logs=True)
+                elif _command == "get_schema":
+                    _model = input("Model: ")
+                    _sub = input("Subdomain: ")
+                    _dom = input("Domain: ")
+                    a = _db_helper.get_schema(_model)
+                    b = None
+                elif _command == "get_errors":
+                    _model = input("Model: ")
+                    _sub = input("Subdomain: ")
+                    _dom = input("Domain: ")
+                    a = _db_helper.get_errors(_model, _sub, _dom)
+                    b = None
+                _command = input("cmd> ")
+        elif _input == "exit":
             break
