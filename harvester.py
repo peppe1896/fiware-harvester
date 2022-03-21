@@ -2,10 +2,10 @@ import loader as ld
 import os
 import pandas as pd
 import json
-import db_schema_helper as db_helper
+import dbschemahelper as db_helper
 import schema_interpreter as s4c
 
-class Harvester:
+class SmartDataModelsHarvester:
 
     def __init__(self,
                  base_link="https://github.com/smart-data-models/",
@@ -42,7 +42,7 @@ class Harvester:
         os.makedirs(self.result_folder[:-1], exist_ok=True)
         self.blacklist_schemas = ["geometry-schema.json", "schema.org.json"]
         if database is None:
-            self.db_helper = db_helper.Db_schema_helper(self.result_folder)
+            self.db_helper = db_helper.DbSchemaHelper(self.result_folder)
         else:
             self.db_helper = database
         self.base_link = base_link

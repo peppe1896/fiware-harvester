@@ -1,13 +1,12 @@
 import sqlite3
 import ast
-import shutil
 import datetime
-import os
 import mysql.connector
 import json
+import statics
 
 
-class Db_schema_helper:
+class DbSchemaHelper:
     def __init__(self, db_folder, backup_folder, count_limit=10):
         self.base_folder = db_folder
         self.db_uri = self.base_folder + "db_schema.db"
@@ -60,17 +59,17 @@ class Db_schema_helper:
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
 
-    def update_default_version(self, model, subdomain=None, domain=None, new_version=None, ignore_if_exists=True):
-        if new_version:
-            _ignore = ""
-            if ignore_if_exists:
-                _ignore = "or IGNORE"
-            _query = f'INSERT {_ignore} INTO default_versions WHERE model="{model}"'
-            if subdomain:
-                _query += f' AND subdomain="{subdomain}"'
-            if domain:
-                _query += f' AND domain="{domain}"'
-            _query += f" VALUES({domain}, {subdomain}, {model}, {new_version})"
+    def update_default_version(self, model, subdomain, domain, new_version):
+        _query = f'UPDATE default_versions SET  defaultVersion="{new_version}" WHERE ' \
+                 f'model="{model}" AND subdomain="{subdomain}" AND domain="{domain}"'
+        try:
+            self.cursor_mysql.execute(_query)
+            self.connector_mysql.commit()
+            self.cursor_mysql.reset()
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+            self.cursor_mysql.reset()
+            self.connector_mysql.rollback()
 
     def _default_version_procedure(self, model, subdomain, domain, version):
         try:
@@ -83,18 +82,31 @@ class Db_schema_helper:
             print("Something went wrong: {}".format(err))
 
     def get_default_version(self, model, subdomain=None, domain=None):
-        _query = f"SELECT defaultVersion FROM default_versions WHERE model='{model}'"
+        _query = f"SELECT defaultVersion, model, subdomain, domain FROM default_versions WHERE model='{model}'"
         if subdomain:
             _query += f" AND subdomain='{subdomain}'"
         if domain:
             _query += f" AND domain='{domain}'"
         try:
             self.cursor_mysql.execute(_query)
-            res = self.cursor_mysql.fetchone()
+            res = self.cursor_mysql.fetchall()
             if res is None:
                 return None
+            elif len(res)==1:
+                return res[0][0]
             else:
-                return res[0]
+                _temp_schema = None
+                for v_m_s_d in res:
+                    if _temp_schema is None:
+                        _temp_schema = self.get_schema(v_m_s_d[1], v_m_s_d[2], v_m_s_d[3], v_m_s_d[0])
+                    else:
+                        _compare_schema = self.get_schema(v_m_s_d[1], v_m_s_d[2], v_m_s_d[3], v_m_s_d[0])
+                        _equals_to_last_found = statics.json_is_equals(_temp_schema, _compare_schema)
+                        if not _equals_to_last_found:
+                            print("Ambiguous model. Specify also subdomain and/or domain")
+                            _temp_schema = None
+                            break
+                return _temp_schema
         except mysql.connector.Warning as war:
             print("Something went wrong: {}".format(war))
             return None
@@ -102,48 +114,35 @@ class Db_schema_helper:
             print("Something went wrong: {}".format(err))
             return None
 
-    def _prepare_tuple(self, tuple):
-        _domain = tuple[0]
-        _subdomain = tuple[1]
-        _model = tuple[2]
-        _version = tuple[3]
-        _atts = json.dumps(tuple[4])
-        _errors = json.dumps(tuple[5])
-        _atts_log = json.dumps(tuple[6])
-        _schema = json.dumps(tuple[7])
+    def _prepare_tuple(self, _tuple):
+        _domain = _tuple[0]
+        _subdomain = _tuple[1]
+        _model = _tuple[2]
+        _version = _tuple[3]
+        _atts = json.dumps(_tuple[4])
+        _errors = json.dumps(_tuple[5])
+        _atts_log = json.dumps(_tuple[6])
+        _schema = json.dumps(_tuple[7])
         _timestamp = datetime.datetime.now().timestamp()
 
         return (_domain, _subdomain, _model, _version, _atts, _errors, _atts_log, _schema)
 
-    def _get_solver(self, message, query_res, model, subdomain, domain):
-        _default_version = self.get_default_version(model, subdomain, domain)
-        if len(message)>0:
-            print(message)
-        print(f"Found some versions.. Selecting default version for model '{model}' (version {_default_version}).")
-        _temp_res = None
-        for item in query_res:
-            if item[0] == _default_version:
-                if _temp_res is None:
-                    _temp_res = item[1]
-                else:
-                    print("Ambiguous.. Specify other parameters, like subdomain or domain.")
-                    return None
-        return _temp_res
-
-    def add_model(self, tuple):
+    def add_model(self, _tuple):
         try:
-            _t = self._prepare_tuple(tuple)
+            _t = self._prepare_tuple(_tuple)
             _domain = _t[0]
             _subdomain = _t[1]
             _model = _t[2]
             _version = _t[3]
             self._default_version_procedure(_model, _subdomain, _domain, _version)
             self.prepared_cursor_mysql.execute(f'INSERT INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE model="{_t[2]}"', _t)
+            self.connector_mysql.commit()
             self.prepared_cursor_mysql.reset()
             self.connector_mysql.commit()
             return True, ""
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
 
     def generic_query(self, query):
         try:
@@ -155,7 +154,7 @@ class Db_schema_helper:
             print("Something went wrong: {}".format(err))
 
     def get_schema(self, model, subdomain=None, domain=None, version=None):
-        _query = f'SELECT version, json_schema FROM raw_schema_model WHERE model="{model}"'
+        _query = f'SELECT version, json_schema, subdomain, domain FROM raw_schema_model WHERE model="{model}"'
         if subdomain:
             _query += f' AND subdomain="{subdomain}"'
         if domain:
@@ -164,16 +163,32 @@ class Db_schema_helper:
             _query += f' AND version="{version}"'
         try:
             self.cursor_mysql.execute(_query)
-            a = self.cursor_mysql.fetchall()
-            if len(a) == 1:
-                _dict_str = a[0]
+            query_res = self.cursor_mysql.fetchall()
+            if len(query_res) == 1:
+                _dict_str = query_res[0]
                 if _dict_str is not None:
-                    res = ast.literal_eval(_dict_str[1])
+                    _string = _dict_str[1]
+                    res = json.loads(_string)
+                    #res = ast.literal_eval(_string)
                     return res
                 else:
                     return None
-            elif len(a) > 1 and version is None:
-                return self._get_solver("", query_res=a, model=model, subdomain=subdomain, domain=domain)
+            elif len(query_res) > 1 and version is None:
+                _default_version = self.get_default_version(model, subdomain, domain)
+                if _default_version is None:
+                    return None
+                print(f"Found some versions.. Selecting default version for model '{model}' (version {_default_version}).")
+                _temp_res = None
+                for item in query_res:
+                    if item[0] == _default_version:
+                        if _temp_res is None:
+                            _temp_res = item[1]
+                        elif not statics.json_is_equals(_temp_res, item[1]):
+                            print("Ambiguous.. Specify other parameters, like subdomain or domain.")
+                            return None
+                        else:
+                            print(f"Same version of schema in different keys 'domain'({item[3]}) and 'subdomain'({item[2]}).")
+                return _temp_res
             return None
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
@@ -204,6 +219,8 @@ class Db_schema_helper:
                     return res
                 elif len(a) > 1 and version is None:
                     _def_version = self.get_default_version(model, subdomain, domain)
+                    if _def_version is None:
+                        return None
                     print(f"Getting errors of default version (version {_def_version})")
                     _temp_res = None
                     for item in a:
@@ -232,15 +249,18 @@ class Db_schema_helper:
         try:
             self.cursor_mysql.execute(_query)
             return self.cursor_mysql.fetchall()
-        except sqlite3.Error as e:
-            print(e.args[0])
-            return []
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+            return None
+        except mysql.connector.Warning as err:
+            print("Something went wrong: {}".format(err))
+            return None
 
     def get_attributes(self, model, subdomain=None, domain=None, version=None, also_attributes_logs=False):
         _eventually_attr_log = ""
         if also_attributes_logs:
             _eventually_attr_log = ", attributesLog"
-        _query = f'SELECT attributes{_eventually_attr_log} FROM raw_schema_model WHERE model="{model}"'
+        _query = f'SELECT version, attributes{_eventually_attr_log} FROM raw_schema_model WHERE model="{model}"'
         if subdomain:
             _query += f' AND subdomain="{subdomain}"'
         if domain:
@@ -249,60 +269,103 @@ class Db_schema_helper:
             _query += f' AND version="{version}"'
         try:
             self.cursor_mysql.execute(_query)
-            a = self.cursor_mysql.fetchall()
-            if a is not None:
-                if len(a) == 1:
-                    res = ast.literal_eval(a[0][0])
-                    return res
-                elif len(a)>1 and version is None:
-                    _def_version = self.get_default_version(model, subdomain, domain)
-                    print(f"Found some versions.. Getting attributes of default version (version {_def_version})")
-                    _temp_res = None
-                    for item in a:
-                        if item[0] == _def_version:
-                            if _temp_res is None:
-                                _temp_res = item[1]
+            query_res = self.cursor_mysql.fetchall()
+            if query_res is not None:
+                if len(query_res) == 1:
+                    res = ast.literal_eval(query_res[0][1])
+                    if also_attributes_logs:
+                        _a_log = ast.literal_eval(query_res[0][2])
+                        return [res, _a_log]
+                    return [res, []]
+                elif len(query_res) > 1 and version is None:
+                    _default_version = self.get_default_version(model, subdomain, domain)
+                    if _default_version is None:
+                        return None
+                    print(f"Found some versions.. Selecting default version for model '{model}' (version {_default_version}).")
+                    _temp_atts = None
+                    _temp_atts_log = None
+                    for item in query_res:
+                        if item[0] == _default_version:
+                            if _temp_atts is None:
+                                _temp_atts = item[0]
+                                if also_attributes_logs:
+                                    _temp_atts_log = item[1]
                             else:
                                 print("Ambiguous.. Specify other parameters, like subdomain or domain.")
-                                return None
-                    return None
-                return None
-            if also_attributes_logs:
-                res = ast.literal_eval(a[0])
-                attr_log = ast.literal_eval(a[1])
-                if len(res) > 0:
-                    return [res, attr_log]
+                                _temp_atts = None
+                                _temp_atts_log = None
+                                break
+                    return [_temp_atts, _temp_atts_log]
                 else:
-                    return [[], []]
+                    return [None, None]
+            return None
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+            return None
+        except mysql.connector.Warning as err:
+            print("Something went wrong: {}".format(err))
+            return None
+
+    def get_unchecked_attrs(self, model=None, subdomain=None, domain=None, version=None):
+        _query = f'SELECT model, subdomain, domain, version, attributes->"$.*.value_name" FROM raw_schema_model WHERE attributes->>"$.*.checked"=False'
+        if model:
+            _query += f' AND model="{model}"'
+        if subdomain:
+            _query += f' AND subdomain="{subdomain}"'
+        if domain:
+            _query += f' AND domain="{domain}"'
+        if version:
+            _query += f' AND version="{version}"'
+        _query += " ORDER BY model"
+        try:
+            self.cursor_mysql.execute(_query)
+            q_res = self.cursor_mysql.fetchall()
+            if not model and not subdomain and not domain and not version:
+                _temp = []
+                for _tuple in q_res:
+                    _atts = json.loads(_tuple[4])
+                    _tple = (_tuple[0], _tuple[1], _tuple[2], _tuple[3], _atts)
+                    _temp.append(_tple)
+                return _temp    # Seleziona tutti i modelli
+            if model and subdomain and domain and version:
+                return ast.literal_eval(q_res[0][4])
+            if q_res is not None:
+                if len(q_res) == 1:
+                    return ast.literal_eval(q_res[0][4])
+                elif len(q_res) > 1:
+                    _def_version = self.get_default_version(model, subdomain, domain)
+                    if _def_version is None:
+                        return None
+                    _temp_res = None
+                    for item in q_res:
+                        if item[3] == _def_version:
+                            if _temp_res is None:
+                                _temp_res = item[4]
+                            else:
+                                _temp_res = None
+                    return _temp_res
             else:
-                res = ast.literal_eval(a[0])
-                if len(res) > 0:
-                    return [res, []]
-                else:
-                    return [[], []]
-        except sqlite3.Error as e:
-            print(e.args[0])
-            return [[], []]
+                return None
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+            return None
+        except mysql.connector.Warning as err:
+            print("Something went wrong: {}".format(err))
+            return None
 
-    def _update_backup_name(self):
-        self.last_backup = f"db_schema--{str(datetime.datetime.now().replace(microsecond=0).timestamp())[:-2]}.db"
-
-    def _backup_path(self):
-        return self.backup_base_folder+self.last_backup
-
-    def backup_db(self, actual_command):
-        self.count_operations += 1
-        if actual_command != self.last_command or self.count_operations > self.count_limit:
-            shutil.copyfile(self.db_uri, self._backup_path())
-            self._update_backup_name()
-            self.count_operations = 0
-        self.last_command = actual_command
-
-    def restore_db(self):
-        self.connector_sqlite.commit()
-        self.connector_sqlite.close()
-        os.remove(self.db_uri)
-        shutil.copyfile(self.last_backup, self.db_uri)
-
-    def get_unchecked_attrs(self, model, subdomain=None, domain=None, version=None):
-        return
+    def update_checked(self, model, subdomain, domain, version, attribute_name, checked_value="False"):
+        _query = f'UPDATE raw_schema_model ' \
+                 f'SET attributes=JSON_REPLACE(attributes, "$.{attribute_name}.checked", "{checked_value}") ' \
+                 f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
+        try:
+            self.cursor_mysql.execute(_query)
+            self.connector_mysql.commit()
+            self.cursor_mysql.reset()
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
+            return None
+        except mysql.connector.Warning as err:
+            print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
+            return None

@@ -7,17 +7,20 @@ from jsonschema import validate
 import keyvalueToNormalized as kvtn
 import normalizedToKeyvalue as ntkv
 
-with open("/media/giuseppe/Archivio2/Download/Domains/SmartCities/dataModel.UrbanMobility/ArrivalEstimation/schema.json") as json_schema:
-    schema = json.load(json_schema)
+a = {"b": "aa", "c": 1, "d": ["ff", "aa"]}
+b = {"b": "aa", "c": 1, "d": ["aa", "ff"]}
 
-with open("/media/giuseppe/Archivio2/Download/Domains/SmartCities/dataModel.Streetlighting/Streetlight/examples/example-normalized.json") as corr:
-    correct = json.load(corr)
 
-#print(validate(correct, schema))
+def ordered(obj):
+    if isinstance(obj, dict):
+        return sorted((k, ordered(v)) for k, v in obj.items())
+    if isinstance(obj, list):
+        return sorted(ordered(x) for x in obj)
+    else:
+        return obj
 
-#a = kvtn.keyValues_2_normalized(correct)
-a = ntkv.normalized_2_keyvalue(correct)
-
+s = ordered(a) == ordered(b)
+sd = None
 # Expect dictionary
 def find_key_from_dict(self, target_key, delete, entry_list, path):
     for _key in entry_list.keys():
