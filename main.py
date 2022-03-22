@@ -82,7 +82,7 @@ if __name__ == "__main__":
                     _model = input("Model: ")
                     _sub = input("Subdomain: ")
                     _dom = input("Domain: ")
-                    a = _db_helper.get_schema(_model)
+                    a = _db_helper.get_model_schema(_model)
                     b = None
                 elif _command == "get_errors":
                     _model = input("Model: ")

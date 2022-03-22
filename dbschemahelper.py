@@ -64,14 +64,17 @@ class DbSchemaHelper:
                     PRIMARY KEY (model_id)
                 );"""
 
-        _tables = [_table_raw_schema_model, _table_default_versions, _table_map_id]
+        _tables = [
+            _table_raw_schema_model,
+            _table_default_versions,
+            _table_map_id
+        ]
         for _table in _tables:
             try:
                 self.cursor_mysql.execute(_table)
                 self.cursor_mysql.reset()
             except mysql.connector.Error as err:
                 print("Something went wrong: {}".format(err))
-
 
     def update_default_version(self, model, subdomain, domain, new_version):
         _query = f'UPDATE default_versions SET  defaultVersion="{new_version}" WHERE ' \
@@ -112,9 +115,9 @@ class DbSchemaHelper:
                 _temp_schema = None
                 for v_m_s_d in res:
                     if _temp_schema is None:
-                        _temp_schema = self.get_schema(v_m_s_d[1], v_m_s_d[2], v_m_s_d[3], v_m_s_d[0])
+                        _temp_schema = self.get_model_schema(v_m_s_d[1], v_m_s_d[2], v_m_s_d[3], v_m_s_d[0])
                     else:
-                        _compare_schema = self.get_schema(v_m_s_d[1], v_m_s_d[2], v_m_s_d[3], v_m_s_d[0])
+                        _compare_schema = self.get_model_schema(v_m_s_d[1], v_m_s_d[2], v_m_s_d[3], v_m_s_d[0])
                         _equals_to_last_found = statics.json_is_equals(_temp_schema, _compare_schema)
                         if not _equals_to_last_found:
                             print("Ambiguous model. Specify also subdomain and/or domain")
@@ -200,7 +203,7 @@ class DbSchemaHelper:
         except mysql.connector.Warning as err:
             print("Something went wrong: {}".format(err))
 
-    def get_schema(self, model, subdomain=None, domain=None, version=None):
+    def get_model_schema(self, model, subdomain=None, domain=None, version=None):
         _query = f'SELECT version, json_schema, subdomain, domain FROM raw_schema_model WHERE model="{model}"'
         if subdomain:
             _query += f' AND subdomain="{subdomain}"'
@@ -422,6 +425,40 @@ class DbSchemaHelper:
             _att = json.loads(item[4])
             _res.append((_mdl, _sbd, _dmn, _vrs, _att))
         return _res
+
+    def get_sbdom_dom(self, model, version=None):
+        _query = f"SELECT model, subdomain, domain, version FROM raw_schema_model WHERE model='{model}'"
+        if version:
+            _query += f" AND version='{version}'"
+        _query_res = self.generic_query(_query)
+        if len(_query_res) == 1:
+            return _query_res[0][1], _query_res[0][2], _query_res[0][3]
+        else:
+            print("Some version of this model has been found in database")
+            self.check_same_modelsName_same_schema(model)
+
+    def check_same_modelsName_same_schema(self, model):
+        _version = self.get_all_versions(model)
+        if len(_version) > 1:
+            _itr = 0
+            _same_schemas = False
+            while _itr < len(_version) - 1:
+                # Each tuple is (version, subdomain, domain)
+                _sch_outside = _version[_itr]
+                _current_schema = self.get_model_schema(model, _sch_outside[1], _sch_outside[2], _sch_outside[0])
+                _iterator = _itr
+                _itr += 1
+                while _iterator < len(_version):
+                    _sch_inside = _version[_iterator]
+                    _schema = self.get_model_schema(model, _sch_inside[1], _sch_inside[2], _sch_inside[0])
+                    if not statics.json_is_equals(_current_schema, _schema):
+                        print(f"Database contains different models named {model}.")
+                        _same_schemas = True
+                    _iterator += 1
+            if not _same_schemas:
+                print("All of this schemas are equals.")
+            else:
+                print("Different schemas with same model name")
 
     def update_checked(self, model, subdomain, domain, version, attribute_name, checked_value="False"):
         _query = f'UPDATE raw_schema_model ' \

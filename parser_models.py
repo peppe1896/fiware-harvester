@@ -9,7 +9,6 @@ class Parser():
         self.validated_payloads = []
         self.unvalidated_payloads = []
         self.db_helper = db_helper
-        self.thrown_exceptions = []
 
     def _correct_payload(self, payload):
         if statics.is_normalized(payload):
@@ -30,44 +29,67 @@ class Parser():
         self.raw_payloads = _temp
         if also_execute:
             self.execute_parsing()
+            self.parse_unparsed()
 
     def execute_parsing(self):
         for payload in self.raw_payloads:
             _payload_model = payload["type"]
             _vers_subd_dom = self.db_helper.get_all_versions(_payload_model)
             if len(_vers_subd_dom) == 1:
-                _schema = self.db_helper.get_schema(_payload_model)
+                _schema = self.db_helper.get_model_schema(_payload_model)
                 try:
                     validate(payload, _schema)
                     self.validated_payloads.append(payload)
                 except Exception as e:
-                    self.thrown_exceptions.append(e)
+                    _unval_errors = {"unvalidated": [], "errors": []}
+                    _unval_errors["unvalidated"].append((_payload_model, _tuple[1], _tuple[2], _tuple[0]))
+                    _unval_errors["errors"].append(e)
                     self.unvalidated_payloads.append((payload, None))
                 continue  # Vado al prossimo payload
             elif len(_vers_subd_dom) > 1:
                 # Caso in cui ci sono più schema
                 _iterator = 0
-                _validated = []
-                _unval_errors = {"unvalidated": [], "errors": []}
+                _validated = []     # Collezione di model, subdomain, domain, version  che hanno validato il payload
+                _unval_errors = {"unvalidated": [], "errors": []}   # stessa collezione di sopra, che NON hanno validato il payload, e l'errore che hanno lanciato inserendo quello schema
                 while _iterator < len(_vers_subd_dom):
                     _tuple = _vers_subd_dom[_iterator]  # VERSION - SUBDOMAIN - DOMAIN
                     _iterator += 1
-                    _schema = self.db_helper.get_schema(_payload_model, subdomain=_tuple[1], domain=_tuple[2], version=_tuple[0])
+                    _schema = self.db_helper.get_model_schema(_payload_model, subdomain=_tuple[1], domain=_tuple[2], version=_tuple[0])
                     try:
                         validate(payload, _schema)
-                        _validated.append([_payload_model, _tuple[1], _tuple[2], _tuple[0]])
+                        _validated.append((_payload_model, _tuple[1], _tuple[2], _tuple[0]))
                     except Exception as e:
-                        _unval_errors["unvalidated"].append([_payload_model, _tuple[1], _tuple[2], _tuple[0]])
+                        _unval_errors["unvalidated"].append((_payload_model, _tuple[1], _tuple[2], _tuple[0]))
                         _unval_errors["errors"].append(e)
                 if len(_validated) == 1: # Solo uno schema ha validato - C'era ambiguità su modello, ma è stata risolta
-                    # Ho bisogno di salvare per quali motivi non è stato validato il payload.
                     self.validated_payloads.append(payload)
                 elif len(_validated) == 0:  # Nessuno degli schema ha validato.
+                    # Voglio controllare se i modelli che non hanno validato sono comunque uguali
+                    _itr = 0
+                    _schema_used = _unval_errors["unvalidated"] # Stessa lenght di _error_thrown
+                    _error_thrown = _unval_errors["errors"]
+                    _same_schemas = False
+                    while _itr < len(_schema_used) - 1:
+                        _sc_u = _schema_used[_itr]
+                        _current_schema = self.db_helper.get_model_schema(_sc_u[0], _sc_u[1], _sc_u[2], _sc_u[3])
+                        _iterator = _itr
+                        _itr += 1
+                        while _iterator < len(_schema_used):
+                            _sc_u_inside = _schema_used[_iterator]
+                            _schema = self.db_helper.get_model_schema(_sc_u_inside[0], _sc_u_inside[1], _sc_u_inside[2], _sc_u_inside[3])
+                            if not statics.json_is_equals(_current_schema, _schema):
+                                print(f"Database contains different models named {_payload_model}.")
+                                _same_schemas = True
+                            _iterator += 1
+                    if not _same_schemas:
+                        print("All of this schemas are equals.")
+                    else:
+                        print("Different schemas with same model name")
                     self.unvalidated_payloads.append((payload, _unval_errors))
                 else: # Più schema hanno validato payload. Sono uguali?
                     _temp_schema = None
                     for _tuple in _validated:
-                        _schema = self.db_helper.get_schema(_payload_model, subdomain=_tuple[1], domain=_tuple[2], version=_tuple[0])
+                        _schema = self.db_helper.get_model_schema(_payload_model, subdomain=_tuple[1], domain=_tuple[2], version=_tuple[0])
                         if _temp_schema is None:
                             _temp_schema = _schema
                         else:
@@ -75,7 +97,17 @@ class Parser():
                                 print("Payload validable against more schemas..")
 
             else:
-                print("")
+                print("No schema found in database.")
+
+    def parse_unparsed(self):
+        _iter = 0
+        while _iter < len(self.unvalidated_payloads):
+            _current_payload = self.unvalidated_payloads[_iter]
+            _current_excpt = self.thrown_exceptions[_iter]
+            a = None
+            _iter += 1
+
+
     def get_results(self):
         return [self.validated_payloads, self.unvalidated_payloads, self.thrown_exceptions]
 
