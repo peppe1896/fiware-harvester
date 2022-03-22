@@ -441,7 +441,7 @@ class DbSchemaHelper:
         _version = self.get_all_versions(model)
         if len(_version) > 1:
             _itr = 0
-            _same_schemas = False
+            _same_schemas = True
             while _itr < len(_version) - 1:
                 # Each tuple is (version, subdomain, domain)
                 _sch_outside = _version[_itr]
@@ -453,12 +453,13 @@ class DbSchemaHelper:
                     _schema = self.get_model_schema(model, _sch_inside[1], _sch_inside[2], _sch_inside[0])
                     if not statics.json_is_equals(_current_schema, _schema):
                         print(f"Database contains different models named {model}.")
-                        _same_schemas = True
+                        _same_schemas = False
                     _iterator += 1
-            if not _same_schemas:
+            if _same_schemas:
                 print("All of this schemas are equals.")
             else:
                 print("Different schemas with same model name")
+            return _same_schemas
 
     def update_checked(self, model, subdomain, domain, version, attribute_name, checked_value="False"):
         _query = f'UPDATE raw_schema_model ' \
