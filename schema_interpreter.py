@@ -820,7 +820,7 @@ class Schema_interpreter:
             "healthiness_value": "300",  # Standard
             "editable": "0",  # Standard
             "checked": "False",
-            "old_attribute": attribute
+            "raw_attribute": attribute
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log

@@ -48,16 +48,30 @@ class DbSchemaHelper:
                     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (domain, subdomain, model)
                 );"""
-        try:
-            self.cursor_mysql.execute(_table_raw_schema_model)
-            self.cursor_mysql.reset()
-        except mysql.connector.Error as err:
-            print("Something went wrong: {}".format(err))
-        try:
-            self.cursor_mysql.execute(_table_default_versions)
-            self.cursor_mysql.reset()
-        except mysql.connector.Error as err:
-            print("Something went wrong: {}".format(err))
+        _table_map_id = """CREATE TABLE IF NOT EXISTS map_id
+                (
+                    model_id INT NOT NULL AUTO_INCREMENT,
+                    domain VARCHAR(50) NOT NULL DEFAULT "Unset",
+                    subdomain VARCHAR(50) NOT NULL DEFAULT "Unset",
+                    model VARCHAR(50) NOT NULL DEFAULT "Unset",
+                    version VARCHAR(10) NOT NULL DEFAULT "0.0.0",
+                    PRIMARY KEY (model_id)
+                );"""
+        _table_id_attrs = """CREATE TABLE IF NOT EXISTS id_attrs
+                (
+                    model_id INT NOT NULL AUTO_INCREMENT,
+                    
+                    PRIMARY KEY (model_id)
+                );"""
+
+        _tables = [_table_raw_schema_model, _table_default_versions, _table_map_id]
+        for _table in _tables:
+            try:
+                self.cursor_mysql.execute(_table)
+                self.cursor_mysql.reset()
+            except mysql.connector.Error as err:
+                print("Something went wrong: {}".format(err))
+
 
     def update_default_version(self, model, subdomain, domain, new_version):
         _query = f'UPDATE default_versions SET  defaultVersion="{new_version}" WHERE ' \
@@ -114,6 +128,38 @@ class DbSchemaHelper:
             print("Something went wrong: {}".format(err))
             return None
 
+    def get_id(self, model, subdomain=None, domain=None, version=None):
+        _query = f'SELECT * FROM map_id WHERE model="{model}"'
+        if subdomain:
+            _query += f' AND subdomain="{subdomain}"'
+        if domain:
+            _query += f' AND domain="{domain}"'
+        if version:
+            _query += f' AND version="{version}"'
+        try:
+            self.cursor_mysql.execute(_query)
+            _res = self.cursor_mysql.fetchall()
+            if len(_res)==1:
+                return _res[0][0]
+            else:
+                return None
+        except mysql.connector.Warning as war:
+            print("Something went wrong: {}".format(war))
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+
+    def _procedure_add_id(self, model, subdomain, domain, version):
+        _maybe_id = self.get_id(model, subdomain, domain, version)
+        if not _maybe_id:
+            try:
+                _query = f"INSERT INTO map_id (model, subdomain, domain, version) VALUES ('{model}', '{subdomain}', '{domain}', '{version}')"
+                self.cursor_mysql.execute(_query)
+                self.cursor_mysql.reset()
+            except mysql.connector.Warning as war:
+                print("Something went wrong: {}".format(war))
+            except mysql.connector.Error as err:
+                print("Something went wrong: {}".format(err))
+
     def _prepare_tuple(self, _tuple):
         _domain = _tuple[0]
         _subdomain = _tuple[1]
@@ -135,6 +181,7 @@ class DbSchemaHelper:
             _model = _t[2]
             _version = _t[3]
             self._default_version_procedure(_model, _subdomain, _domain, _version)
+            self._procedure_add_id(_model, _subdomain, _domain, _version)
             self.prepared_cursor_mysql.execute(f'INSERT INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE model="{_t[2]}"', _t)
             self.connector_mysql.commit()
             self.prepared_cursor_mysql.reset()
@@ -352,6 +399,29 @@ class DbSchemaHelper:
         except mysql.connector.Warning as err:
             print("Something went wrong: {}".format(err))
             return None
+
+    def get_attribute(self, attribute_name, model=None, subdomain=None, domain=None, version=None, onlyChecked_True_False=None):
+        _query = f"""select model, subdomain, domain, version, attributes->"$.{attribute_name}" from raw_schema_model where json_contains(attributes->"$.*.value_name", '"{attribute_name}"', "$" )"""
+        if model:
+            _query += f' AND model="{model}"'
+        if subdomain:
+            _query += f' AND subdomain="{subdomain}"'
+        if domain:
+            _query += f' AND domain="{domain}"'
+        if version:
+            _query += f' AND version="{version}"'
+        if onlyChecked_True_False:
+            _query += f' AND attributes->>"$.{attribute_name}.checked"={onlyChecked_True_False}'
+        _query_res = self.generic_query(_query)
+        _res = []
+        for item in _query_res:
+            _mdl = item[0]
+            _sbd = item[1]
+            _dmn = item[2]
+            _vrs = item[3]
+            _att = json.loads(item[4])
+            _res.append((_mdl, _sbd, _dmn, _vrs, _att))
+        return _res
 
     def update_checked(self, model, subdomain, domain, version, attribute_name, checked_value="False"):
         _query = f'UPDATE raw_schema_model ' \

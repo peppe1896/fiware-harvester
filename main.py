@@ -69,7 +69,7 @@ if __name__ == "__main__":
                 a = _ingestor.open_link(_link, header="{'Fiware-Service': 'Tampere'}")
                 _ingestor.analize_results(a)
         elif _input == "db":
-            _command = input("cmd> ")
+            _command = input("db> ")
             while _command != "exit":
                 if _command == "def_vers":
                     _model = input("Model: ")
@@ -103,6 +103,35 @@ if __name__ == "__main__":
                     _vers = input("Version: ")
                     a = _db_helper.get_unchecked_attrs(_model)#, _sub, _dom,_vers)#, _sub, _dom, also_attributes_logs=True)
                     b = None
-                _command = input("cmd> ")
+                elif _command=="get_attribute":
+                    _attr = input("Attribute name: ")
+                    _model = input("Model: ")
+                    _sub = input("Subdomain: ")
+                    _dom = input("Domain: ")
+                    _vers = input("Version: ")
+                    a = _db_helper.get_attribute(_attr, _model, _sub, _dom, _vers, "False")
+
+                    if True:
+                        continue
+
+                    _iter = len(a) - 1
+                    _temp = []
+                    while _iter >= 0:
+                        _last = a.pop(_iter)
+                        for _item in a:
+                            if statics.json_is_equals(_last[4]["raw_attribute"], _item[4]["raw_attribute"]):
+                                s = None
+                            else:
+                                _k_1 = _last[4].keys()
+                                _k_2 = _item[4].keys()
+                                if sorted(_k_1) == sorted(_k_2):
+                                    d = None
+                                else:
+                                    s = None
+                                if _last[4]["raw_attribute"]["type"] == _item[4]["raw_attribute"]["type"]:
+                                    s = None
+                                else:
+                                    s = None
+                _command = input("db> ")
         elif _input == "exit":
             break
