@@ -1,21 +1,25 @@
 from jsonschema import validate
+from jsonschema import ValidationError
 import statics
-
+import re
 
 # Set a list of payloads by using set_payloads, or add one per one by using append_payload
+# Each of them, will be converted into keyValue payload
 class Parser():
     def __init__(self, db_helper):
         self.raw_payloads = []
+        self.raw_metadata = []
         self.validated_payloads = []
         self.unvalidated_payloads = []
         self.db_helper = db_helper
 
     def _correct_payload(self, payload):
         if statics.is_normalized(payload):
-            return payload
+            return payload, None
         else:
             res = statics.normalized_2_keyvalue(payload)
-            return res[0]
+            self.raw_metadata.append(res[1])
+            return res[0], res[1]
 
     def append_payload(self, payload: dict):
         _temp = self._correct_payload(payload)
@@ -28,11 +32,18 @@ class Parser():
             _temp.append(self._correct_payload(payload))
         self.raw_payloads = _temp
         if also_execute:
-            self.execute_parsing()
-            self.parse_unparsed()
+            _unvalidated_payloads = self.execute_parsing()
+            self.parse_unparsed(_unvalidated_payloads)
 
-    def execute_parsing(self):
-        for payload in self.raw_payloads:
+    def execute_parsing(self, payloads=None):
+        _payloads = payloads
+        _unvalidated_payloads = []
+        if payloads is None:
+            _payloads = self.raw_payloads
+            print("Executing first parsing of payloads with respectives schema...")
+        while len(_payloads) > 0:
+            _raw_payload = _payloads.pop(0) # _raw_payload contiene anche metadata eventuali estratti
+            payload = _raw_payload[0]
             _payload_model = payload["type"]
             _vers_subd_dom = self.db_helper.get_all_versions(_payload_model)
             if len(_vers_subd_dom) == 1:
@@ -40,12 +51,12 @@ class Parser():
                 _schema = self.db_helper.get_model_schema(_payload_model)
                 try:
                     validate(payload, _schema)
-                    self.validated_payloads.append(payload)
+                    self.validated_payloads.append(((payload,_raw_payload[1]), (_payload_model, _schema_key[1], _schema_key[2], _schema_key[0])))
                 except Exception as e:
                     _unval_errors = {"unvalidated": [], "errors": []}
                     _unval_errors["unvalidated"].append((_payload_model, _schema_key[1], _schema_key[2], _schema_key[0]))
                     _unval_errors["errors"].append(e)
-                    self.unvalidated_payloads.append((payload, _unval_errors))
+                    _unvalidated_payloads.append(((payload,_raw_payload[1]), _unval_errors))
                 continue  # Vado al prossimo payload
             elif len(_vers_subd_dom) > 1:
                 # Caso in cui ci sono più schema
@@ -55,13 +66,14 @@ class Parser():
                     _schema = self.db_helper.get_model_schema(_payload_model, _schema_key[1], _schema_key[2], _schema_key[0])
                     try:
                         validate(payload, _schema)
-                        self.validated_payloads.append(payload)
+                        self.validated_payloads.append(((payload,_raw_payload[1]), (_payload_model, _schema_key[1], _schema_key[2], _schema_key[0])))
                     except Exception as e:
                         _unval_errors = {"unvalidated": [], "errors": []}
                         _unval_errors["unvalidated"].append((_payload_model, _schema_key[1], _schema_key[2], _schema_key[0]))
                         _unval_errors["errors"].append(e)
-                        self.unvalidated_payloads.append((payload, _unval_errors))
+                        _unvalidated_payloads.append(((payload,_raw_payload[1]), _unval_errors))
                     continue  # Vado al prossimo payload
+                # Ho diversi schema.json, con lo stesso model name, ma appunto con schema diversi. Vedo per quale schema valida
                 else:
                     _iterator = 0
                     _validated = []     # Collezione di model, subdomain, domain, version  che hanno validato il payload
@@ -77,34 +89,70 @@ class Parser():
                             _unval_errors["unvalidated"].append((_payload_model, _tuple[1], _tuple[2], _tuple[0]))
                             _unval_errors["errors"].append(e)
                     if len(_validated) == 1: # Solo uno schema ha validato - C'era ambiguità su modello, ma è stata risolta
-                        self.validated_payloads.append(payload)
+                        self.validated_payloads.append(((payload,_raw_payload[1]), _validated[0]))
                     elif len(_validated) == 0:  # Nessuno degli schema ha validato.
                         # Voglio controllare se i modelli che non hanno validato sono comunque uguali
-                        self.unvalidated_payloads.append((payload, _unval_errors))
+                        _unvalidated_payloads.append(((payload,_raw_payload[1]), _unval_errors))
                     else: # Più schema hanno validato payload. Sono uguali?
-                        _temp_schema = None
-                        for _tuple in _validated:
-                            _schema = self.db_helper.get_model_schema(_payload_model, subdomain=_tuple[1], domain=_tuple[2], version=_tuple[0])
-                            if _temp_schema is None:
-                                _temp_schema = _schema
-                            else:
-                                if not statics.json_is_equals(_schema, _temp_schema):
-                                    print("Payload validable against more schemas..")
-
+                        print("")
             else:
                 print("No schema found in database.")
+        return _unvalidated_payloads
 
     # Ci sono errori che si possono semplicemente risolvere in modo autonomo per parsare i payload.
-    # Quindi se riconosco l'errore, allora posso metterci una pezza e provare a validarlo di nuovo, spostandolo di nuovo
-    # in raw_payloads ed eseguendo di nuovo execute
-    def parse_unparsed(self):
-        _iter = 0
-        while _iter < len(self.unvalidated_payloads):
-            _current_payload = self.unvalidated_payloads[_iter]
-            _current_excpt = self.thrown_exceptions[_iter]
-            a = None
-            _iter += 1
-
+    # Quindi se riconosco l'errore, posso correggere e provare a validarlo di nuovo
+    # Questo metodo è l'unico che carica i payload non validati nella corrispondente variabile di classe
+    def parse_unparsed(self, unvalidated_payloads):
+        while len(unvalidated_payloads) > 0:
+            _raw_payload = unvalidated_payloads.pop(0)
+            _metadata = _raw_payload[0][1]
+            _item = (_raw_payload[0][0], _raw_payload[1])
+            _payload = _item[0]
+            _schemas_id = _item[1]["unvalidated"]
+            _errors = _item[1]["errors"]
+            if len(_schemas_id) == 1:
+                # Caso in cui ho un errore e uno schema
+                _schema_tuple = _schemas_id[0]
+                _error = _errors[0]
+                _schema = self.db_helper.get_model_schema(_schema_tuple[0], _schema_tuple[1], _schema_tuple[2], _schema_tuple[3])
+                if isinstance(_error, ValidationError):
+                    if re.search("is a required", _error.message):
+                        # Questo tipo di errore non mi permette di agire - Lo inserisco in quelli imparsabili
+                        self.unvalidated_payloads.append((_item,_metadata))
+                        # Chiamo execute_parsing correggendo un po' il payload
+                    elif re.search("is not of type", _error.message):
+                        _d_type = ""
+                        if re.search("array", _error.message):
+                            _d_type = "array"
+                        elif re.search("number", _error.message):
+                            _d_type = "number"
+                        if _d_type == "":    # Se non è un errore riconosciuto, lo sposto direttamente tra quelli non validi
+                            self.unvalidated_payloads.append((_item, _metadata))
+                            continue
+                        _path = _error.json_path
+                        _path = _path.rsplit(".")
+                        _pointer = _path.pop(0)
+                        _tmp = _payload
+                        while len(_path) > 0:
+                            _pointer = _path.pop(0)
+                            if len(_path) == 0:
+                                if _d_type == "array":
+                                    _tmp[_pointer] = [_tmp[_pointer]]
+                                elif _d_type == "number":
+                                    _tmp[_pointer] = float(_tmp[_pointer])
+                            else:
+                                _tmp = _tmp[_pointer]
+                        a = self.execute_parsing([(_payload, _metadata)])
+                        if len(a) > 0:
+                            unvalidated_payloads.append(a[0])
+                    else:
+                        # Se non è uno dei casi che so gestire, allora confermo che si tratta di un payload non correggibile
+                        self.unvalidated_payloads.append(_item)
+            elif len(_schemas_id) == 0:
+                continue
+            else:
+                for _schema_tuple in _schemas_id:
+                    a = None
 
     def get_results(self):
         return [self.validated_payloads, self.unvalidated_payloads, self.thrown_exceptions]
@@ -114,3 +162,4 @@ class Parser():
         self.unvalidated_payloads = []
         self.thrown_exceptions = []
         self.raw_payloads = []
+        self.raw_metadata = []

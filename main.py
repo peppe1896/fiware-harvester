@@ -7,7 +7,6 @@ from tkinter import filedialog
 import payloadsingestor as ingstr
 import statics
 import os
-import dictionary_evaluator as dict_evaluator
 ###############
 # DEFINITIONS #
 ###############
@@ -51,13 +50,11 @@ if __name__ == "__main__":
                 result_folder=result_folder,
                 database=_db_helper
             )
-        if _dict_evaluator is None:
-            _dict_evaluator = dict_evaluator.DictEval(dictionary_link, _db_helper)
         if _ingestor is None:
             _ingestor = ingstr.PayloadsIngestor(_db_helper, result_folder, dictionary_link)
         _input = input("cmd> ")
         if _input == "create_db":
-            _hv.create_db_from_dict()
+            _hv.create_db_from_dict(also_wrongs=False)
         elif _input == "ingestor":
             _cmd = input("From? ")
             if _cmd == "file":
@@ -66,7 +63,8 @@ if __name__ == "__main__":
                 _ingestor.analize_results(_Res)
             elif _cmd == "url":
                 _link = input("Write link:")
-                a = _ingestor.open_link(_link, header="{'Fiware-Service': 'Tampere'}")
+                _header = input("Header: \nFor Tampere multitenancy server, {'Fiware-Service': 'Tampere'}")
+                a = _ingestor.open_link(_link, header=_header)
                 _ingestor.analize_results(a)
         elif _input == "db":
             _command = input("db> ")
@@ -101,7 +99,7 @@ if __name__ == "__main__":
                     _sub = input("Subdomain: ")
                     _dom = input("Domain: ")
                     _vers = input("Version: ")
-                    a = _db_helper.get_unchecked_attrs(_model)#, _sub, _dom,_vers)#, _sub, _dom, also_attributes_logs=True)
+                    a = _db_helper.get_unchecked_attrs(_model, _sub, _dom,_vers)
                     b = None
                 elif _command=="get_attribute":
                     _attr = input("Attribute name: ")
@@ -132,6 +130,14 @@ if __name__ == "__main__":
                                     s = None
                                 else:
                                     s = None
+                elif _command == "update_checked":
+                    _model = input("Model: ")
+                    _sub = input("Subdomain: ")
+                    _dom = input("Domain: ")
+                    _vers = input("Version: ")
+                    _attr_name = input("Attribute name: ")
+                    _checked = input("True or False")
+                    _db_helper.update_checked(_model, _sub, _dom, _vers, _attr_name, _checked)
                 _command = input("db> ")
         elif _input == "exit":
             break

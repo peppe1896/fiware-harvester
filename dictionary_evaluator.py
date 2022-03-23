@@ -8,11 +8,10 @@ class DictEval():
         self._load_dict()
         self.a()
         self.analize_schema_attrs("a","a","a","a")
-        print()
 
     def _load_dict(self):
         _temp_dict = requests.get(self.dictionary_link+"?get_all").json()
-        if _temp_dict["result"]=="OK" and _temp_dict["code"]==200:
+        if _temp_dict["result"] == "OK" and _temp_dict["code"] == 200:
             self.dictionary = _temp_dict["content"]
 
     # Elaborazione delle regole per la sostituzione automatica

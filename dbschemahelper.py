@@ -1,4 +1,3 @@
-import sqlite3
 import ast
 import datetime
 import mysql.connector
@@ -9,9 +8,7 @@ import statics
 class DbSchemaHelper:
     def __init__(self, db_folder, backup_folder, count_limit=10):
         self.base_folder = db_folder
-        self.db_uri = self.base_folder + "db_schema.db"
-        self.connector_sqlite = sqlite3.connect(self.db_uri)
-        self.cursor_sqlite = self.connector_sqlite.cursor()
+        self.backup_base_folder = backup_folder
         self.connector_mysql = mysql.connector.connect(
             host="localhost",
             user="peppe1896",
@@ -20,10 +17,6 @@ class DbSchemaHelper:
         )
         self.prepared_cursor_mysql = self.connector_mysql.cursor(prepared=True)
         self.cursor_mysql = self.connector_mysql.cursor(buffered=True)
-        self.backup_base_folder = backup_folder
-        self.last_backup = f"db_schema--{str(datetime.datetime.now().replace(microsecond=0).timestamp())[:-2]}.db"
-        self.last_command = ""
-        self.count_operations = 0
         self.count_limit = count_limit          # Quando count arriva a count_limit, fa un backup.
 
         _table_raw_schema_model = """CREATE TABLE IF NOT EXISTS raw_schema_model
@@ -60,8 +53,10 @@ class DbSchemaHelper:
         _table_id_attrs = """CREATE TABLE IF NOT EXISTS id_attrs
                 (
                     model_id INT NOT NULL AUTO_INCREMENT,
+                    attr_name VARCHAR(30) NOT NULL,
+                    checked BOOLEAN,
                     
-                    PRIMARY KEY (model_id)
+                    PRIMARY KEY (model_id, attr_name)
                 );"""
 
         _tables = [
@@ -109,21 +104,11 @@ class DbSchemaHelper:
             res = self.cursor_mysql.fetchall()
             if res is None:
                 return None
-            elif len(res)==1:
+            elif len(res) == 1:
                 return res[0][0]
             else:
-                _temp_schema = None
-                for v_m_s_d in res:
-                    if _temp_schema is None:
-                        _temp_schema = self.get_model_schema(v_m_s_d[1], v_m_s_d[2], v_m_s_d[3], v_m_s_d[0])
-                    else:
-                        _compare_schema = self.get_model_schema(v_m_s_d[1], v_m_s_d[2], v_m_s_d[3], v_m_s_d[0])
-                        _equals_to_last_found = statics.json_is_equals(_temp_schema, _compare_schema)
-                        if not _equals_to_last_found:
-                            print("Ambiguous model. Specify also subdomain and/or domain")
-                            _temp_schema = None
-                            break
-                return _temp_schema
+                if self.check_same_modelsName_same_schema(model):
+                    return res[0][0]
         except mysql.connector.Warning as war:
             print("Something went wrong: {}".format(war))
             return None
@@ -306,11 +291,13 @@ class DbSchemaHelper:
             print("Something went wrong: {}".format(err))
             return None
 
-    def get_attributes(self, model, subdomain=None, domain=None, version=None, also_attributes_logs=False):
+    def get_attributes(self, model=None, subdomain=None, domain=None, version=None, also_attributes_logs=False):
         _eventually_attr_log = ""
         if also_attributes_logs:
             _eventually_attr_log = ", attributesLog"
-        _query = f'SELECT version, attributes{_eventually_attr_log} FROM raw_schema_model WHERE model="{model}"'
+        _query = f'SELECT version, attributes{_eventually_attr_log} FROM raw_schema_model WHERE version!=" "'
+        if model:
+            _query += f' AND model="{model}"'
         if subdomain:
             _query += f' AND subdomain="{subdomain}"'
         if domain:
@@ -320,7 +307,7 @@ class DbSchemaHelper:
         try:
             self.cursor_mysql.execute(_query)
             query_res = self.cursor_mysql.fetchall()
-            if query_res is not None:
+            if model and query_res is not None:
                 if len(query_res) == 1:
                     res = ast.literal_eval(query_res[0][1])
                     if also_attributes_logs:
@@ -348,7 +335,8 @@ class DbSchemaHelper:
                     return [_temp_atts, _temp_atts_log]
                 else:
                     return [None, None]
-            return None
+            else:
+                return query_res
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
             return None
@@ -357,7 +345,7 @@ class DbSchemaHelper:
             return None
 
     def get_unchecked_attrs(self, model=None, subdomain=None, domain=None, version=None):
-        _query = f'SELECT model, subdomain, domain, version, attributes->"$.*.value_name" FROM raw_schema_model WHERE attributes->>"$.*.checked"=False'
+        _query = f'SELECT model, subdomain, domain, version, attributes->"$.*.value_name" FROM raw_schema_model WHERE json_contains(attributes->"$.*.checked",\'"False"\',"$")'
         if model:
             _query += f' AND model="{model}"'
         if subdomain:
@@ -437,29 +425,33 @@ class DbSchemaHelper:
             print("Some version of this model has been found in database")
             self.check_same_modelsName_same_schema(model)
 
-    def check_same_modelsName_same_schema(self, model):
-        _version = self.get_all_versions(model)
-        if len(_version) > 1:
+    # Controlla se tutti i modelli con quel nome sono uguali tra loro.
+    # Questo puà andare bene a questo livello, ma se venissero rilasciate nuove versioni di questi modelli, questo
+    # dovrebbe non funzionare più TODO Leggi qui
+    # Potrebbe essere vincolato usando anche la versione: modelli con lo stesso nome e stessa versione, sono identici?
+    # Possibile funzioni così.
+    def check_same_modelsName_same_schema(self, model, version=None):
+        _versions = self.get_all_versions(model)
+        _same_schemas = True
+        if len(_versions) > 1:
             _itr = 0
-            _same_schemas = True
-            while _itr < len(_version) - 1:
+            while _itr < len(_versions) - 1:
                 # Each tuple is (version, subdomain, domain)
-                _sch_outside = _version[_itr]
+                _sch_outside = _versions[_itr]
                 _current_schema = self.get_model_schema(model, _sch_outside[1], _sch_outside[2], _sch_outside[0])
                 _iterator = _itr
                 _itr += 1
-                while _iterator < len(_version):
-                    _sch_inside = _version[_iterator]
+                while _iterator < len(_versions):
+                    _sch_inside = _versions[_iterator]
                     _schema = self.get_model_schema(model, _sch_inside[1], _sch_inside[2], _sch_inside[0])
                     if not statics.json_is_equals(_current_schema, _schema):
-                        print(f"Database contains different models named {model}.")
                         _same_schemas = False
                     _iterator += 1
             if _same_schemas:
-                print("All of this schemas are equals.")
+                print(f"All of this schemas are equals. Model: '{model}'")
             else:
-                print("Different schemas with same model name")
-            return _same_schemas
+                print(f"Different schemas with same model name. Model: '{model}'")
+        return _same_schemas
 
     def update_checked(self, model, subdomain, domain, version, attribute_name, checked_value="False"):
         _query = f'UPDATE raw_schema_model ' \
