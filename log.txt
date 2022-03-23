@@ -1,4 +1,0 @@
-- Bisogna levare l'uso di "/" negli uri, usa invece os.path.join
-- Se in un array ho un "contain" vuol dire che ho identificato il value type?
-- Per personalizzare come vengono salvati gli attributi su snap4city, basta modificare le ultime funzioni dentro Schema_interpreter,
-    quelle che cominciano con "_manage_"
