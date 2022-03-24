@@ -3,8 +3,7 @@ import json
 import requests
 import statics
 import ast
-import dictionary_evaluator as dict_evaluator
-import similarity_checker
+import rule_generator
 
 class PayloadsIngestor():
     def __init__(self, database, result_folder, dict_link):
@@ -12,7 +11,8 @@ class PayloadsIngestor():
         self.model_parser = pm.Parser(database)
         self.payloads_list = []  # List of payloads kept
         self.results_folder = result_folder
-        self.similarity_checker = similarity_checker.SimilarityChecker(dict_link, database)
+        self.rule_generator = rule_generator.RuleGenerator(database, dict_link)
+        self.rules = []
 
     # curl -H "Fiware-Service:Tampere" https://context.tampere.fiware.cityvision.cloud:443/v2/entities
     def open_link(self, link: str, header="", save_json=True):
@@ -61,16 +61,21 @@ class PayloadsIngestor():
         _correct_payloads = triple[0]
         _uncorrect_payloads = triple[1]
         _error_thrown = triple[2]
-        _messages = "Payload Analysis results\n"
-        _iterator = len(_uncorrect_payloads) - 1
-        while _iterator >= 0:
-            _err = _error_thrown[_iterator]
-            _messages += "ID: " + _err.instance["id"] + "\tMessage: '"
-            _messages += _err.message + "'\n"
-            _iterator -= 1
-        statics.create_folders([self.results_folder + "Payload-Ingestor/"])
-        with open(self.results_folder + "Payload-Ingestor/results.txt", "w", encoding="utf8") as results:
-            results.write(_messages)
+        _itr = 0
+        while _itr < len(_correct_payloads):
+            _rule = self.rule_generator.create_rule(_correct_payloads[_itr])
+            a = None
+            _itr += 1
+        #_messages = "Payload Analysis results\n"
+        #_iterator = len(_uncorrect_payloads) - 1
+        #while _iterator >= 0:
+        #    _err = _error_thrown[_iterator]
+        #    _messages += "ID: " + _err.instance["id"] + "\tMessage: '"
+        #    _messages += _err.message + "'\n"
+        #    _iterator -= 1
+        #statics.create_folders([self.results_folder + "Payload-Ingestor/"])
+        #with open(self.results_folder + "Payload-Ingestor/results.txt", "w", encoding="utf8") as results:
+        #    results.write(_messages)
 
     def clean_payloads(self):
         self.payloads_list = []

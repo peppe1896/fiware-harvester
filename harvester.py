@@ -104,8 +104,8 @@ class SmartDataModelsHarvester:
                                     return
                         else:
                             self.unsaved_models.append((model, subdomain, domain))
-        with open(self.result_folder+"Unsaved-Models.txt", "w", encoding="utf8") as file:
-            json.dump(self.unsaved_models, file)
+        with open(self.result_folder+"Unsaved-Models.json", "w", encoding="utf8") as file:
+            json.dump(self.unsaved_models, file, indent=2)
 
     def _create_pandas(self):
         _columns = ["Domain", "Subdomain", "Model", "jsonschema", "time", "version"]

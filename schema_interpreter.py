@@ -59,6 +59,8 @@ class Schema_interpreter:
     # Procedure istanzia un nuovo modello - Può essere chiamato da fuori contenendo questo oggetto
     def procedure(self, schema_uri, domain, subdomain, model):
         print(f"\nAnalisi di {domain} {subdomain} {model}")
+        if model == "NoiseLevelObserved":
+            a = None
         self._reset()
         self.schema_uri = schema_uri
         self.domain = domain
@@ -691,7 +693,7 @@ class Schema_interpreter:
             "value_name": f"{attribute_name}",
             "data_type": f"{_data_type}",
             "value_type": f"{_value_type}",
-            "value_unit": "",
+            "value_unit": "-",
             "healthiness_criteria": "refresh_rate",  # Standard
             "healthiness_value": "300",  # Standard
             "editable": "0",  # Standard

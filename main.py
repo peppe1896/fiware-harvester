@@ -3,7 +3,6 @@
 ###########
 import harvester as hv
 import dbschemahelper as db
-from tkinter import filedialog
 import payloadsingestor as ingstr
 import statics
 import os
@@ -58,7 +57,7 @@ if __name__ == "__main__":
         elif _input == "ingestor":
             _cmd = input("From? ")
             if _cmd == "file":
-                file = filedialog.askopenfile("r", filetypes=[("Json files","*.json")])
+                file = statics.ask_open_file("json")
                 _Res = _ingestor.open_payloads_file(file.name)
                 _ingestor.analize_results(_Res)
             elif _cmd == "url":
@@ -75,12 +74,11 @@ if __name__ == "__main__":
                     _dom = input("Domain: ")
                     a = _db_helper.get_default_version(_model, subdomain=_sub)
                     b = None
-                #a = _db_helper.get_attributes("Building", also_attributes_logs=True)
                 elif _command == "get_schema":
                     _model = input("Model: ")
                     _sub = input("Subdomain: ")
                     _dom = input("Domain: ")
-                    a = _db_helper.get_model_schema(_model)
+                    a = _db_helper.get_model_schema(_model, _sub, _dom)
                     b = None
                 elif _command == "get_errors":
                     _model = input("Model: ")
@@ -101,7 +99,7 @@ if __name__ == "__main__":
                     _vers = input("Version: ")
                     a = _db_helper.get_unchecked_attrs(_model, _sub, _dom,_vers)
                     b = None
-                elif _command=="get_attribute":
+                elif _command == "get_attribute":
                     _attr = input("Attribute name: ")
                     _model = input("Model: ")
                     _sub = input("Subdomain: ")
@@ -138,6 +136,19 @@ if __name__ == "__main__":
                     _attr_name = input("Attribute name: ")
                     _checked = input("True or False")
                     _db_helper.update_checked(_model, _sub, _dom, _vers, _attr_name, _checked)
+                elif _command == "count_attr":
+                    _attr = input("Attribute name: ")
+                    _group_by = input("Group by.. Write one, or mode followed by a comma, of this: [model, subdomain, domain]")
+                    a = _db_helper.count_attributes(_attr, _group_by)
+                    b = None
+                elif _command == "query":
+                    _query = input("Write your query")
+                    a = _db_helper.generic_query(_query)
+                    b = None
+                elif _command == "add_rule":
+                    rule = ("a", [{"a":0}], [{"a":1}], "BB", "aaa", "Service", "ServicePath")
+                    _db_helper.add_rule(rule, multitenancy=True)
+                    a = None
                 _command = input("db> ")
         elif _input == "exit":
             break

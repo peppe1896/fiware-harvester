@@ -58,11 +58,24 @@ class DbSchemaHelper:
                     
                     PRIMARY KEY (model_id, attr_name)
                 );"""
+        _table_rules = """CREATE TABLE IF NOT EXISTS`EXT_values_rules` (
+                      `Name` varchar(40) NOT NULL,
+                      `If_statement` text DEFAULT NULL,
+                      `Then_statement` text DEFAULT NULL,
+                      `Organization` varchar(40) DEFAULT NULL,
+                      `Timestamp` datetime NOT NULL,
+                      `mode` varchar(45) DEFAULT NULL,
+                      `contextbroker` varchar(45) DEFAULT NULL,
+                      `service` varchar(25) DEFAULT NULL,
+                      `servicePath` varchar(96) DEFAULT NULL,
+                      PRIMARY KEY (`Timestamp`)
+                );"""
 
         _tables = [
             _table_raw_schema_model,
             _table_default_versions,
-            _table_map_id
+            _table_map_id,
+            _table_rules
         ]
         for _table in _tables:
             try:
@@ -157,7 +170,6 @@ class DbSchemaHelper:
         _errors = json.dumps(_tuple[5])
         _atts_log = json.dumps(_tuple[6])
         _schema = json.dumps(_tuple[7])
-        _timestamp = datetime.datetime.now().timestamp()
 
         return (_domain, _subdomain, _model, _version, _atts, _errors, _atts_log, _schema)
 
@@ -173,7 +185,6 @@ class DbSchemaHelper:
             self.prepared_cursor_mysql.execute(f'INSERT INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE model="{_t[2]}"', _t)
             self.connector_mysql.commit()
             self.prepared_cursor_mysql.reset()
-            self.connector_mysql.commit()
             return True, ""
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
@@ -291,11 +302,14 @@ class DbSchemaHelper:
             print("Something went wrong: {}".format(err))
             return None
 
-    def get_attributes(self, model=None, subdomain=None, domain=None, version=None, also_attributes_logs=False):
+    def get_attributes(self, model=None, subdomain=None, domain=None, version=None, onlyChecked="", also_attributes_logs=False, excludeType=True, excludedAttr=[]):
         _eventually_attr_log = ""
+        _attributes = "attributes"
         if also_attributes_logs:
             _eventually_attr_log = ", attributesLog"
-        _query = f'SELECT version, attributes{_eventually_attr_log} FROM raw_schema_model WHERE version!=" "'
+        if excludeType:
+            _attributes = ' JSON_REMOVE(attributes->"$", "$.type")'
+        _query = f'SELECT version, {_attributes}{_eventually_attr_log} FROM raw_schema_model WHERE version!=" "'
         if model:
             _query += f' AND model="{model}"'
         if subdomain:
@@ -304,37 +318,61 @@ class DbSchemaHelper:
             _query += f' AND domain="{domain}"'
         if version:
             _query += f' AND version="{version}"'
+        if onlyChecked:
+            _query += f' AND JSON_CONTAINS(attributes->"$.*.checked",\'"{onlyChecked}"\',"$")'
         try:
             self.cursor_mysql.execute(_query)
             query_res = self.cursor_mysql.fetchall()
-            if model and query_res is not None:
-                if len(query_res) == 1:
-                    res = ast.literal_eval(query_res[0][1])
+            if len(excludedAttr) > 0 or onlyChecked:
+                if len(excludedAttr) > 0:
+                    _num_res = len(query_res)
+                    _iterator = 0
+                    while _iterator < _num_res:
+                        _tuple = query_res.pop(0)
+                        _attrs = json.loads(_tuple[1])
+                        for _attr in excludedAttr:
+                            if _attr in _attrs.keys():
+                                _attrs.pop(_attr)
+                        _new_tuple = list(_tuple)
+                        _new_tuple[1] = json.dumps(_attrs)
+                        _new_tuple = tuple(_new_tuple)
+                        query_res.append(_new_tuple)
+                        _iterator += 1
+                if onlyChecked:
+                    _num_res = len(query_res)
+                    _iterator = 0
+                    while _iterator < _num_res:
+                        _tuple = query_res.pop(0)
+                        _attrs = json.loads(_tuple[1])
+                        _new_attrs = {}
+                        _attrs_keys = list(_attrs.keys())
+                        for _attr_key in _attrs_keys:
+                            _attr = _attrs.pop(_attr_key)
+                            if _attr["checked"] == onlyChecked:
+                                _new_attrs[_attr_key] = _attr
+                        _new_tuple = list(_tuple)
+                        _new_tuple[1] = json.dumps(_new_attrs)
+                        _new_tuple = tuple(_new_tuple)
+                        query_res.append(_new_tuple)
+                        _iterator += 1
+            if len(query_res) == 1:
+                res = json.loads(query_res[0][1])
+                if also_attributes_logs:
+                    _a_log = json.loads(query_res[0][2])
+                    return res, _a_log
+                return res
+            elif len(query_res) == 0:
+                if also_attributes_logs:
+                    return {}, {}
+                return {}
+            elif model is not None:
+                if self.check_same_modelsName_same_schema(model, version):
+                    res = ast.literal_eval(query_res[0][0][1])
                     if also_attributes_logs:
-                        _a_log = ast.literal_eval(query_res[0][2])
-                        return [res, _a_log]
-                    return [res, []]
-                elif len(query_res) > 1 and version is None:
-                    _default_version = self.get_default_version(model, subdomain, domain)
-                    if _default_version is None:
-                        return None
-                    print(f"Found some versions.. Selecting default version for model '{model}' (version {_default_version}).")
-                    _temp_atts = None
-                    _temp_atts_log = None
-                    for item in query_res:
-                        if item[0] == _default_version:
-                            if _temp_atts is None:
-                                _temp_atts = item[0]
-                                if also_attributes_logs:
-                                    _temp_atts_log = item[1]
-                            else:
-                                print("Ambiguous.. Specify other parameters, like subdomain or domain.")
-                                _temp_atts = None
-                                _temp_atts_log = None
-                                break
-                    return [_temp_atts, _temp_atts_log]
-                else:
-                    return [None, None]
+                        _a_log = ast.literal_eval(query_res[0][0][2])
+                        return res, _a_log
+                    return res, []
+                return query_res
             else:
                 return query_res
         except mysql.connector.Error as err:
@@ -468,4 +506,38 @@ class DbSchemaHelper:
         except mysql.connector.Warning as err:
             print("Something went wrong: {}".format(err))
             self.connector_mysql.rollback()
+            return None
+
+    def count_attributes(self, attribute, group_by=""):
+        if not group_by:
+            group_by = "model"
+        _query = f'select {group_by}, count(*) from raw_schema_model ' \
+                 f'where json_contains(attributes->"$.*.value_name", \'"{attribute}"\', "$" ) ' \
+                 f'group by {group_by}'
+        res = self.generic_query(_query)
+        return res
+
+    def add_rule(self, rule, multitenancy=None):
+        _name = rule[0]
+        _ifs = json.dumps(rule[1])
+        _thens = json.dumps(rule[2])
+        _org = rule[3]
+        _cb = rule[4]
+        _t = (_name, _ifs, _thens, _org, _cb)
+        if multitenancy:
+            _srv = rule[5]
+            _service_path = rule[6]
+            _t = (_name, _ifs, _thens, _org, _cb, _srv, _service_path)
+        try:
+            if multitenancy:
+                self.prepared_cursor_mysql.execute(f'INSERT INTO EXT_values_rules VALUES (?,?,?,?,NOW(),"1",?,?,?)', _t)
+            else:
+                self.prepared_cursor_mysql.execute(f'INSERT INTO EXT_values_rules VALUES (?,?,?,?,NOW(),"1", ?, Null, Null)', _t)
+            self.connector_mysql.commit()
+            self.prepared_cursor_mysql.reset()
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+            return None
+        except mysql.connector.Warning as err:
+            print("Something went wrong: {}".format(err))
             return None
