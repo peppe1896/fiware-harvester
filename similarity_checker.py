@@ -46,7 +46,9 @@ class SimilarityChecker():
     # Controllo se tra tutti gli attributi con checked=True di TUTTI gli schema, ho una struttura simile a quella
     # dell'attributo passato in ingresso
     def _check_against_attrs_structure(self, attribute_key, onlyChecked, schema_tuple):
+        _commons_model = self.db_helper.get_attributes(domain="definition-schemas", onlyChecked=onlyChecked, excludeType=True)
         _all_attributes_checked = self.db_helper.get_attributes(onlyChecked=onlyChecked, excludeType=True)
+        _all_attributes_checked.extend(_commons_model)
         # Devo prendere l'attributo raw e confrontarlo con gli attributi che sono checked
         # Con quelli che non lo sono, non è necessario
         _model = schema_tuple[0]
@@ -55,11 +57,23 @@ class SimilarityChecker():
         _version = schema_tuple[3]
         _attribute = self.db_helper.get_attribute(attribute_key, _model, _subdomain, _domain, _version)
         if len(_attribute) == 0:
+            _common_attr = self.db_helper.get_attribute(attribute_key, domain="definition-schemas", onlyChecked_True_False=onlyChecked)
             print(f"No attribute found with name '{attribute_key}'. Control the schema...")
             _schema = self.db_helper.get_model_schema(_model, _subdomain, _domain, _version)
             statics.window_json(_schema, f"Schema tuple: {str(schema_tuple)}\nAttention! No attribute found with name '{attribute_key}'")
         else:
-            _attribute = _attribute[0]
+            _attribute = _attribute[0][4]
             _raw_attribute = _attribute["raw_attribute"]
-
+            _raw_attr_keys = _raw_attribute.keys()
+            if len(_raw_attr_keys) > 2:
+                while len(_all_attributes_checked) > 0:
+                    _tuple = _all_attributes_checked.pop(0)
+                    for _other_attr in _tuple[0]:
+                        _obj = _tuple[_other_attr]["raw_attribute"]
+                        if len(_obj.keys()) > 2:
+                            if statics.json_is_equals(_obj.keys(), _raw_attr_keys):
+                                if _obj["type"] == _raw_attribute["type"]:
+                                    a = None
+                            else:
+                                b = None
         return None

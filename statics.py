@@ -1,6 +1,4 @@
 import os
-from tkinter import INSERT
-
 
 def add_to_log(message, log):
     log += message + "\n"
@@ -55,10 +53,11 @@ def json_is_equals(json_a, json_b):
     return ordered(json_a) == ordered(json_b)
 
 
-def window_json(json_value, name):
+def window_json(json_value, name, title="Json visualizer"):
     import tkinter as tk
     import json
     app = tk.Tk()
+    app.title(title)
 
     json_val = json.dumps(json_value, indent="\t")
     label = tk.Label(app, text=f"{name}")
@@ -83,3 +82,4 @@ def ask_open_file(type):
         tk.Button(root, text="Select a json file", command=openFileJson(_temp))
         root.mainloop()
         return _temp[0]
+

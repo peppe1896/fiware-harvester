@@ -12,7 +12,7 @@ import os
 base_link = "https://github.com/smart-data-models/"             # Don't change
 dictionary_link = "https://processloader.snap4city.org/processloader/api/dictionary/"
 download_folder = "/media/giuseppe/Archivio2/Download/"#filedialog.askdirectory() + "/"#os.path.dirname(__file__)+ "/Download/"       # Must end with /
-result_folder = os.path.dirname(__file__)+ "/Results/" #filedialog.askdirectory() + "/" #os.path.dirname(__file__)+ "/Results/"          # Must end with /
+result_folder = os.path.dirname(__file__) + "/Results/" #filedialog.askdirectory() + "/" #os.path.dirname(__file__)+ "/Results/"          # Must end with /
 backup_folder = "/media/giuseppe/Archivio2/Download/Backup/"#os.path.dirname(__file__)+ "/Results/Backup/" #filedialog.askdirectory() + "/"
 domains = [
     "data-models",
@@ -27,7 +27,8 @@ domains = [
     "SmartAeronautics",
     "SmartDestination",
     "SmartHealth",
-    "SmartManufacturing"]
+    "SmartManufacturing"
+]
 
 ########
 # MAIN #
@@ -135,7 +136,7 @@ if __name__ == "__main__":
                     _vers = input("Version: ")
                     _attr_name = input("Attribute name: ")
                     _checked = input("True or False")
-                    _db_helper.update_checked(_model, _sub, _dom, _vers, _attr_name, _checked)
+                    _db_helper.update_json_attribute(_model, _sub, _dom, _vers, _attr_name, _checked)
                 elif _command == "count_attr":
                     _attr = input("Attribute name: ")
                     _group_by = input("Group by.. Write one, or mode followed by a comma, of this: [model, subdomain, domain]")

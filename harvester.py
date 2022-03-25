@@ -2,7 +2,6 @@ import loader as ld
 import os
 import pandas as pd
 import json
-import dbschemahelper as db_helper
 import schema_interpreter as s4c
 
 class SmartDataModelsHarvester:
@@ -15,20 +14,7 @@ class SmartDataModelsHarvester:
                  database = None):
 
         if domains is None:
-            domains = [
-                "data-models",
-                "SmartCities",
-                "SmartAgrifood",
-                "SmartWater",
-                "SmartEnergy",
-                "SmartEnvironment",
-                "SmartRobotics",
-                "Smart-Sensoring",
-                "CrossSector",
-                "SmartAeronautics",
-                "SmartDestination",
-                "SmartHealth",
-                "SmartManufacturing"]
+            return
         self.domains = domains
         if download_folder == "":
             self.download_folder = "/media/giuseppe/Archivio2/Download/"   # Where to downaload Repos
@@ -41,10 +27,7 @@ class SmartDataModelsHarvester:
             self.result_folder = result_folder
         os.makedirs(self.result_folder[:-1], exist_ok=True)
         self.blacklist_schemas = ["geometry-schema.json", "schema.org.json"]
-        if database is None:
-            self.db_helper = db_helper.DbSchemaHelper(self.result_folder)
-        else:
-            self.db_helper = database
+        self.db_helper = database
         self.base_link = base_link
         self.location_schemas = None
         self.pandas_dataframe = None
@@ -64,6 +47,27 @@ class SmartDataModelsHarvester:
         with open(self.result_folder+"schemas_location.json") as file:
             self.location_schemas = json.load(file)
 
+    def _prepare_location_schema(self):
+        _definition_schemas = {
+            "definition-schemas":
+                {
+                    "common-schema": {}, "field-common-schema": {}
+                }
+        }
+        _def_schema = _definition_schemas["definition-schemas"]
+        _0 = self.location_schemas.pop("0")
+        _data_models = self.location_schemas.pop("data-models")
+        for _common_schema in _data_models["common-schemas"]:
+            _name = os.path.basename(_common_schema)
+            if _name not in self.blacklist_schemas:
+                _def_schema["common-schema"][_name] = _common_schema
+        for _field_common_schema in _0["0"]:
+            _name = _field_common_schema[10:]
+            _def_schema["field-common-schema"][_name] = _0["0"][_field_common_schema]
+        _temp = {}
+        _temp["definition-schemas"] = _definition_schemas
+        self.location_schemas = {**_temp["definition-schemas"], **self.location_schemas}
+
     def _clean_location_schema(self):
         if "0" in self.location_schemas.keys():
             for _definition_schema in self.location_schemas["0"]["0"]:
@@ -71,15 +75,17 @@ class SmartDataModelsHarvester:
                 self.schema_reader.procedure(_schema, None, None, None)
         if "data-models" in self.location_schemas.keys():
             for _schema in self.location_schemas["data-models"]["common-schemas"]:
-                _name = os.path.basename(_schema)#_schema.rsplit("/")[-1]
+                _name = os.path.basename(_schema)
                 if _name not in self.blacklist_schemas:
                     self.schema_reader.procedure(_schema, None, None, None)
-        _keys_to_delete = ["data-models", "0"]
-        for _key in _keys_to_delete:
-            self.location_schemas.pop(_key, None)
+        _keys_to_rename = ["data-models", "0"]
+        for _key in _keys_to_rename:
+            _temp = self.location_schemas.pop(_key, None)
+
 
     def create_db_from_dict(self, create_pandas=False, also_wrongs=False):
-        self._clean_location_schema()
+        #self._clean_location_schema()
+        self._prepare_location_schema()
         if create_pandas:
             self._create_pandas()
         else:

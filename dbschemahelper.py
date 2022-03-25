@@ -50,14 +50,22 @@ class DbSchemaHelper:
                     version VARCHAR(10) NOT NULL DEFAULT "0.0.0",
                     PRIMARY KEY (model_id)
                 );"""
-        _table_id_attrs = """CREATE TABLE IF NOT EXISTS id_attrs
-                (
-                    model_id INT NOT NULL AUTO_INCREMENT,
-                    attr_name VARCHAR(30) NOT NULL,
-                    checked BOOLEAN,
-                    
-                    PRIMARY KEY (model_id, attr_name)
-                );"""
+        _table_id_attrs = """CREATE VIEW attrs AS 
+                SELECT model, domain, subdomain, version, value_name, value_type, data_type, value_unit, 
+                    healthiness_criteria, healthiness_value, editable, checked, raw_attribute 
+                FROM raw_schema_model, json_table(
+                    raw_schema_model.attributes, '$.*' 
+                        COLUMNS( 
+                            value_name VARCHAR(50) path '$.value_name',
+                            data_type VARCHAR(50) path '$.data_type',
+                            value_type VARCHAR(50) path '$.value_type',
+                            value_unit VARCHAR(50) path '$.value_unit',  
+                            healthiness_criteria VARCHAR(50) path '$.healthiness_criteria',  
+                            healthiness_value VARCHAR(50) path '$.healthiness_value',  
+                            editable VARCHAR(50) path '$.editable',  
+                            checked VARCHAR(30) path '$.checked',  
+                            raw_attribute JSON path '$.raw_attribute')) as t;
+                """
         _table_rules = """CREATE TABLE IF NOT EXISTS`EXT_values_rules` (
                       `Name` varchar(40) NOT NULL,
                       `If_statement` text DEFAULT NULL,
@@ -304,22 +312,20 @@ class DbSchemaHelper:
 
     def get_attributes(self, model=None, subdomain=None, domain=None, version=None, onlyChecked="", also_attributes_logs=False, excludeType=True, excludedAttr=[]):
         _eventually_attr_log = ""
-        _attributes = "attributes"
+        _attributes = "rsm.attributes"
         if also_attributes_logs:
-            _eventually_attr_log = ", attributesLog"
-        if excludeType:
-            _attributes = ' JSON_REMOVE(attributes->"$", "$.type")'
-        _query = f'SELECT version, {_attributes}{_eventually_attr_log} FROM raw_schema_model WHERE version!=" "'
+            _eventually_attr_log = ", rsm.attributesLog"
+        _query = f'SELECT {_attributes}{_eventually_attr_log}, rsm.model, rsm.subdomain, rsm.domain, rsm.version FROM raw_schema_model as rsm, attrs as t WHERE rsm.version!=" "'
         if model:
-            _query += f' AND model="{model}"'
+            _query += f' AND rsm.model="{model}"'
         if subdomain:
-            _query += f' AND subdomain="{subdomain}"'
+            _query += f' AND rsm.subdomain="{subdomain}"'
         if domain:
-            _query += f' AND domain="{domain}"'
+            _query += f' AND rsm.domain="{domain}"'
         if version:
-            _query += f' AND version="{version}"'
+            _query += f' AND rsm.version="{version}"'
         if onlyChecked:
-            _query += f' AND JSON_CONTAINS(attributes->"$.*.checked",\'"{onlyChecked}"\',"$")'
+            _query += f' AND JSON_CONTAINS(rsm.attributes->"$.*.checked",\'"{onlyChecked}"\',"$")'
         try:
             self.cursor_mysql.execute(_query)
             query_res = self.cursor_mysql.fetchall()
@@ -343,7 +349,7 @@ class DbSchemaHelper:
                     _iterator = 0
                     while _iterator < _num_res:
                         _tuple = query_res.pop(0)
-                        _attrs = json.loads(_tuple[1])
+                        _attrs = json.loads(_tuple[0])
                         _new_attrs = {}
                         _attrs_keys = list(_attrs.keys())
                         for _attr_key in _attrs_keys:
@@ -351,30 +357,31 @@ class DbSchemaHelper:
                             if _attr["checked"] == onlyChecked:
                                 _new_attrs[_attr_key] = _attr
                         _new_tuple = list(_tuple)
-                        _new_tuple[1] = json.dumps(_new_attrs)
+                        _new_tuple[0] = json.dumps(_new_attrs)
                         _new_tuple = tuple(_new_tuple)
                         query_res.append(_new_tuple)
                         _iterator += 1
             if len(query_res) == 1:
-                res = json.loads(query_res[0][1])
+                _tmp = list(query_res.pop(0))
+                res = json.loads(_tmp[0])
+                _tmp[0] = res
                 if also_attributes_logs:
-                    _a_log = json.loads(query_res[0][2])
-                    return res, _a_log
-                return res
+                    _a_log = json.loads(_tmp[1])
+                    _tmp[1] = _a_log
+                return [tuple(_tmp)]
             elif len(query_res) == 0:
                 if also_attributes_logs:
                     return {}, {}
                 return {}
-            elif model is not None:
-                if self.check_same_modelsName_same_schema(model, version):
-                    res = ast.literal_eval(query_res[0][0][1])
-                    if also_attributes_logs:
-                        _a_log = ast.literal_eval(query_res[0][0][2])
-                        return res, _a_log
-                    return res, []
-                return query_res
-            else:
-                return query_res
+            _temp = []
+            while len(query_res) > 0:
+                _tuple = query_res.pop(0)
+                _tuple = list(_tuple)
+                _tuple[0] = json.loads(_tuple[0])
+                if also_attributes_logs:
+                    _tuple[1] = json.loads(_tuple[1])
+                _temp.append(tuple(_tuple))
+            return _temp
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
             return None
@@ -440,7 +447,7 @@ class DbSchemaHelper:
         if version:
             _query += f' AND version="{version}"'
         if onlyChecked_True_False:
-            _query += f' AND attributes->>"$.{attribute_name}.checked"={onlyChecked_True_False}'
+            _query += f' AND attributes->>"$.{attribute_name}.checked"="{onlyChecked_True_False}"'
         _query_res = self.generic_query(_query)
         _res = []
         for item in _query_res:
@@ -491,9 +498,9 @@ class DbSchemaHelper:
                 print(f"Different schemas with same model name. Model: '{model}'")
         return _same_schemas
 
-    def update_checked(self, model, subdomain, domain, version, attribute_name, checked_value="False"):
+    def update_json_attribute(self, model, subdomain, domain, version, attribute_name, field="checked", value_to_set="False"):
         _query = f'UPDATE raw_schema_model ' \
-                 f'SET attributes=JSON_REPLACE(attributes, "$.{attribute_name}.checked", "{checked_value}") ' \
+                 f'SET attributes=JSON_REPLACE(attributes, "$.{attribute_name}.{field}", "{value_to_set}") ' \
                  f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
         try:
             self.cursor_mysql.execute(_query)

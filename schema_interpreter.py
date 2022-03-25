@@ -30,7 +30,7 @@ class Schema_interpreter:
             "description": "-DEFAULT DESCRIPTION-",
             "$schema": "-DEFAULT SCHEMA-",
             "$id": "-DEFAULT ID-",
-            "$schemaVersion": "-DEFAULT SCHEMA VERSION-",
+            "$schemaVersion": "0.0.0",
             "modelTags": "-DEFAULT TAGS-",
             "type": "-DEFAULT TYPE-",
             "derivedFrom": "-DEFAULT DERIVEDFROM",
@@ -59,8 +59,6 @@ class Schema_interpreter:
     # Procedure istanzia un nuovo modello - Può essere chiamato da fuori contenendo questo oggetto
     def procedure(self, schema_uri, domain, subdomain, model):
         print(f"\nAnalisi di {domain} {subdomain} {model}")
-        if model == "NoiseLevelObserved":
-            a = None
         self._reset()
         self.schema_uri = schema_uri
         self.domain = domain
@@ -76,6 +74,7 @@ class Schema_interpreter:
                 self._save_details()
             else:
                 print("This schema is a definitions schema. Loaded its definitions.")
+                self._manage_description_schema()
         except Schema_exception as e:
             self.errors.append(f"- Error: {e.get_error()} <-(from EXCEPTION)")
             self.unresetted_errors[model] = self.errors
@@ -93,6 +92,7 @@ class Schema_interpreter:
             if self._is_definition_schema(_raw_schema):
                 self.subdomain_common_schema_uri.append(self.schema_uri)
                 self.definition_schema = True
+                self.raw_schema = _raw_schema
             else:
                 self.raw_schema = _raw_schema
 
@@ -857,6 +857,50 @@ class Schema_interpreter:
         }
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
+
+    def _manage_description_schema(self):
+        _definitions = self.find_from_schema("definitions", delete=True)[0]
+        for _definition in _definitions:
+            if _definition[0].isupper():
+                _obj = _definitions[_definition]
+                if "type" in _obj.keys():
+                    if _obj["type"] == "object":
+                        if "properties" in _obj.keys():
+                            _properties = _obj["properties"]
+                            _keys = list(_properties.keys())
+                            while len(_keys) > 0:
+                                _key = _keys.pop(0)
+                                _prop = _properties[_key]
+                                _new_attribute = {
+                                    "value_name": f"{_key}",  # Prendo il nome dell'attributo
+                                    "data_type": f"{_prop['type'] if 'type' in _prop.keys() else '-' }",
+                                    "value_type": "-",
+                                    "value_unit": "-",
+                                    "healthiness_criteria": "refresh_rate",  # Standard
+                                    "healthiness_value": "300",  # Standard
+                                    "editable": "0",  # Standard
+                                    "checked": "False",
+                                    "raw_attribute": f"{json.dumps(_prop)}"
+                                }
+                                self.analyzed_attrs[_key] = _new_attribute
+                                self.attributes_log[_key] = {}
+            else:
+                _obj = _definitions[_definition]
+                if "type" in _obj.keys():
+                    _prop = _obj
+                    _new_attribute = {
+                        "value_name": f"{_definition}",  # Prendo il nome dell'attributo
+                        "data_type": f"{_prop['type'] if 'type' in _prop.keys() else '-'}",
+                        "value_type": "-",
+                        "value_unit": "-",
+                        "healthiness_criteria": "refresh_rate",  # Standard
+                        "healthiness_value": "300",  # Standard
+                        "editable": "0",  # Standard
+                        "checked": "False",
+                        "raw_attribute": f"{json.dumps(_prop)}"
+                    }
+                    self.analyzed_attrs[_definition] = _new_attribute
+                    self.attributes_log[_definition] = {}
 
     def get_errors(self):
         return self.errors
