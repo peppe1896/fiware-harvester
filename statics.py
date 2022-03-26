@@ -1,5 +1,19 @@
 import os
 
+ATTRIBUTE_MASK = {
+    "value_name": "-",
+    "data_type": "-",
+    "value_type": "-",
+    "value_unit": "-",
+    "healthiness_criteria": "refresh_rate",
+    "healthiness_value": "300",
+    "editable": "0",
+    "checked": "False",
+    "raw_attribute": "{}"
+}
+
+font_tuple = ("times", 11)
+
 def add_to_log(message, log):
     log += message + "\n"
 
@@ -53,7 +67,7 @@ def json_is_equals(json_a, json_b):
     return ordered(json_a) == ordered(json_b)
 
 
-def window_json(json_value, name, title="Json visualizer"):
+def window_read_json(json_value, name, title="Json visualizer"):
     import tkinter as tk
     import json
     app = tk.Tk()
@@ -61,7 +75,7 @@ def window_json(json_value, name, title="Json visualizer"):
 
     json_val = json.dumps(json_value, indent="\t")
     label = tk.Label(app, text=f"{name}")
-    text = tk.Text(app)
+    text = tk.Text(app, font=font_tuple)
     label.pack()
     text.pack(expand=True, fill=tk.BOTH)
     text.insert(tk.END, json_val)
@@ -82,4 +96,63 @@ def ask_open_file(type):
         tk.Button(root, text="Select a json file", command=openFileJson(_temp))
         root.mainloop()
         return _temp[0]
+
+
+def window_edit_json(json_value, name, title="attribute_name"):
+    import tkinter as tk
+    app = tk.Tk()
+    app.title(f"Edit attribute '{title}'")
+    app.geometry("800x600")
+    v_name_lbl = tk.Label(app, text="value_name:",font=font_tuple)
+    value_name = tk.Entry(app)
+    v_name_lbl.pack()
+    value_name.pack()
+    #value_name.insert(0, json_value["value_name"])
+    v_type_lbl = tk.Label(app, text="value_type:",font=font_tuple)
+    value_type = tk.Entry(app)
+    v_type_lbl.pack()
+    value_type.pack()
+    #value_type.insert(0, json_value["value_type"])
+    v_unit_lbl = tk.Label(app, text="value_unit:",font=font_tuple)
+    value_unit = tk.Entry(app)
+    v_unit_lbl.pack()
+    value_unit.pack()
+    #value_unit.insert(0, json_value["value_unit"])
+    #name_lbl = tk.Label(app, text="value_name:")
+    #value_name = tk.Entry(app)
+    btn_save = tk.Button(app, text="Save")
+    btn_undo = tk.Button(app, text="Undo")
+    app.mainloop()
+    #submit = Button(window, text='Submit', command=check).grid(row=3, column=1)
+
+def window_edit_attribute(attribute, attribute_name, title, model, subdomain, domain, version, db):
+    import tkinter as tk
+    import json
+    app = tk.Tk()
+    app.title(title)
+
+    json_val = json.dumps(attribute, indent="\t")
+    label = tk.Label(app, text=f"Updating '{attribute_name}' of {model}, ver. {version}")
+    text = tk.Text(app, font=font_tuple)
+    label.pack()
+    text.pack(expand=True, fill=tk.BOTH)
+    text.insert(tk.END, json_val)
+    text.config(tabs="3")
+
+    def update_attribute():
+        new_attribute = text.get("1.0", tk.END)
+        new_attribute = json.loads(new_attribute)
+        for _k in ATTRIBUTE_MASK.keys():
+            if _k not in new_attribute.keys():
+                continue
+        if not db.attribute_exists(attribute_name, model, subdomain, domain, version):
+            db.create_empty_attribute(attribute_name, model, subdomain, domain, version)
+        for _k in new_attribute:
+            db.update_json_attribute(model, subdomain, domain, version, attribute_name, field=_k, value_to_set=new_attribute[_k])
+        app.destroy()
+
+    tk.Button(app, text="Update changes", command=update_attribute).pack()
+
+    app.mainloop()
+
 

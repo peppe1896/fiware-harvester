@@ -6,7 +6,7 @@ import statics
 
 
 class DbSchemaHelper:
-    def __init__(self, db_folder, backup_folder, count_limit=10):
+    def __init__(self, db_folder, backup_folder):
         self.base_folder = db_folder
         self.backup_base_folder = backup_folder
         self.connector_mysql = mysql.connector.connect(
@@ -17,7 +17,6 @@ class DbSchemaHelper:
         )
         self.prepared_cursor_mysql = self.connector_mysql.cursor(prepared=True)
         self.cursor_mysql = self.connector_mysql.cursor(buffered=True)
-        self.count_limit = count_limit          # Quando count arriva a count_limit, fa un backup.
 
         _table_raw_schema_model = """CREATE TABLE IF NOT EXISTS raw_schema_model
                 (
@@ -50,7 +49,8 @@ class DbSchemaHelper:
                     version VARCHAR(10) NOT NULL DEFAULT "0.0.0",
                     PRIMARY KEY (model_id)
                 );"""
-        _table_id_attrs = """CREATE VIEW attrs AS 
+        _view_attrs = """
+                CREATE VIEW IF NOT EXISTS attrs AS 
                 SELECT model, domain, subdomain, version, value_name, value_type, data_type, value_unit, 
                     healthiness_criteria, healthiness_value, editable, checked, raw_attribute 
                 FROM raw_schema_model, json_table(
@@ -78,12 +78,21 @@ class DbSchemaHelper:
                       `servicePath` varchar(96) DEFAULT NULL,
                       PRIMARY KEY (`Timestamp`)
                 );"""
+        _function_delete_checked = """
+                CREATE FUNCTION delete_checked (json_doc JSON, checked VARCHAR(5))
+                RETURNS TEXT
+                RETURN ( SELECT JSON_OBJECTAGG(one_key, output)
+                         FROM ( SELECT one_key, JSON_EXTRACT(json_doc, CONCAT('$.', one_key)) output
+                                FROM JSON_TABLE(JSON_KEYS(json_doc),
+                                                '$[*]' COLUMNS (one_key VARCHAR(64) PATH '$')) jsontable
+                                HAVING output->>'$.checked' = checked ) subquery );"""
 
         _tables = [
             _table_raw_schema_model,
             _table_default_versions,
             _table_map_id,
             _table_rules
+            #_function_delete_checked
         ]
         for _table in _tables:
             try:
@@ -198,10 +207,13 @@ class DbSchemaHelper:
             print("Something went wrong: {}".format(err))
             self.connector_mysql.rollback()
 
-    def generic_query(self, query):
+    def generic_query(self, query, returns=True):
         try:
             self.cursor_mysql.execute(query)
-            return self.cursor_mysql.fetchall()
+            if returns:
+                return self.cursor_mysql.fetchall()
+            else:
+                self.cursor_mysql.reset()
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
         except mysql.connector.Warning as err:
@@ -311,77 +323,43 @@ class DbSchemaHelper:
             return None
 
     def get_attributes(self, model=None, subdomain=None, domain=None, version=None, onlyChecked="", also_attributes_logs=False, excludeType=True, excludedAttr=[]):
-        _eventually_attr_log = ""
-        _attributes = "rsm.attributes"
+        _attr_log = ""
         if also_attributes_logs:
-            _eventually_attr_log = ", rsm.attributesLog"
-        _query = f'SELECT {_attributes}{_eventually_attr_log}, rsm.model, rsm.subdomain, rsm.domain, rsm.version FROM raw_schema_model as rsm, attrs as t WHERE rsm.version!=" "'
-        if model:
-            _query += f' AND rsm.model="{model}"'
-        if subdomain:
-            _query += f' AND rsm.subdomain="{subdomain}"'
-        if domain:
-            _query += f' AND rsm.domain="{domain}"'
-        if version:
-            _query += f' AND rsm.version="{version}"'
+            _attr_log = "attributesLog"
+        _attributes = "attributes"
+        _exc_type_1 = ""
+        _exc_type_2 = ""
         if onlyChecked:
-            _query += f' AND JSON_CONTAINS(rsm.attributes->"$.*.checked",\'"{onlyChecked}"\',"$")'
+            _attributes = f"delete_checked(attributes, \"{onlyChecked}\")"
+        if model is None and subdomain is None and domain is None:
+            _attributes = "attributes"
+        if excludeType:
+            _exc_type_1 = f'JSON_REMOVE('
+            _exc_type_2 = f', "$.type")'
+        _query = f'select {_exc_type_1}{_attributes}{_exc_type_2}, model, subdomain, domain, version{_attr_log} from raw_schema_model WHERE version!=" "'
+        if model:
+            _query += f' AND model="{model}"'
+        if subdomain:
+            _query += f' AND subdomain="{subdomain}"'
+        if domain:
+            _query += f' AND domain="{domain}"'
+        if version:
+            _query += f' AND version="{version}"'
         try:
             self.cursor_mysql.execute(_query)
             query_res = self.cursor_mysql.fetchall()
-            if len(excludedAttr) > 0 or onlyChecked:
-                if len(excludedAttr) > 0:
-                    _num_res = len(query_res)
-                    _iterator = 0
-                    while _iterator < _num_res:
-                        _tuple = query_res.pop(0)
-                        _attrs = json.loads(_tuple[1])
-                        for _attr in excludedAttr:
-                            if _attr in _attrs.keys():
-                                _attrs.pop(_attr)
-                        _new_tuple = list(_tuple)
-                        _new_tuple[1] = json.dumps(_attrs)
-                        _new_tuple = tuple(_new_tuple)
-                        query_res.append(_new_tuple)
-                        _iterator += 1
-                if onlyChecked:
-                    _num_res = len(query_res)
-                    _iterator = 0
-                    while _iterator < _num_res:
-                        _tuple = query_res.pop(0)
-                        _attrs = json.loads(_tuple[0])
-                        _new_attrs = {}
-                        _attrs_keys = list(_attrs.keys())
-                        for _attr_key in _attrs_keys:
-                            _attr = _attrs.pop(_attr_key)
-                            if _attr["checked"] == onlyChecked:
-                                _new_attrs[_attr_key] = _attr
-                        _new_tuple = list(_tuple)
-                        _new_tuple[0] = json.dumps(_new_attrs)
-                        _new_tuple = tuple(_new_tuple)
-                        query_res.append(_new_tuple)
-                        _iterator += 1
-            if len(query_res) == 1:
-                _tmp = list(query_res.pop(0))
-                res = json.loads(_tmp[0])
-                _tmp[0] = res
-                if also_attributes_logs:
-                    _a_log = json.loads(_tmp[1])
-                    _tmp[1] = _a_log
-                return [tuple(_tmp)]
-            elif len(query_res) == 0:
-                if also_attributes_logs:
-                    return {}, {}
-                return {}
-            _temp = []
+            _result = []
             while len(query_res) > 0:
                 _tuple = query_res.pop(0)
-                _tuple = list(_tuple)
-                _tuple[0] = json.loads(_tuple[0])
-                if also_attributes_logs:
-                    _tuple[1] = json.loads(_tuple[1])
-                _temp.append(tuple(_tuple))
-            return _temp
+                _list = list(_tuple)
+                if _list[0] is not None:
+                    _list[0] = json.loads(_list[0])
+                    if also_attributes_logs:
+                        _list[5] = json.loads(_list[5])
+                else:
+                    _list[0] = {}
+                _result.append(tuple(_list))
+            return _result
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
             return None
@@ -500,7 +478,7 @@ class DbSchemaHelper:
 
     def update_json_attribute(self, model, subdomain, domain, version, attribute_name, field="checked", value_to_set="False"):
         _query = f'UPDATE raw_schema_model ' \
-                 f'SET attributes=JSON_REPLACE(attributes, "$.{attribute_name}.{field}", "{value_to_set}") ' \
+                 f'SET attributes=JSON_SET(attributes, "$.{attribute_name}.{field}", "{value_to_set}") ' \
                  f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
         try:
             self.cursor_mysql.execute(_query)
@@ -548,3 +526,24 @@ class DbSchemaHelper:
         except mysql.connector.Warning as err:
             print("Something went wrong: {}".format(err))
             return None
+
+    def create_empty_attribute(self, attribute_name, model, subdomain, domain, version):
+        _query = f'UPDATE raw_schema_model SET attributes=JSON_INSERT(attributes->"$", "$.{attribute_name}", JSON_OBJECT("value_type", "-"))' \
+                 f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
+        self.generic_query(_query, returns=False)
+
+    def attribute_exists(self, attribute_name, model=None, subdomain=None, domain=None, version=None):
+        _query = f'SELECT count(*) from attrs where value_name="{attribute_name}"'
+        if model:
+            _query += f' AND model="{model}"'
+        if subdomain:
+            _query += f' AND subdomain="{subdomain}"'
+        if domain:
+            _query += f' AND domain="{domain}"'
+        if version:
+            _query += f' AND version="{version}"'
+        _query += " ORDER BY model"
+        _query_res = self.generic_query(_query)
+        if _query_res[0][0] > 0:
+            return True
+        return False

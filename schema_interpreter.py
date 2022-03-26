@@ -860,8 +860,22 @@ class Schema_interpreter:
 
     def _manage_description_schema(self):
         _definitions = self.find_from_schema("definitions", delete=True)[0]
+        _keys = list(_definitions.keys())
+        while len(_keys) > 0:
+            _key = _keys.pop(0)
+            _definition = _definitions.pop(_key)
+            _eventually_constraint = self._check_constraint(_definition.keys())
+            self._analyze_attribute(_definition, _key)
+            continue
+            if _eventually_constraint is not None:
+                _constraint_value = {**_definition[_eventually_constraint][0], **_definition[_eventually_constraint][1]}
+                _definition[_eventually_constraint] = _constraint_value
+            if _definition["type"] == "object":
+                pointer = None
+            a = None
+        return
         for _definition in _definitions:
-            if _definition[0].isupper():
+            if _definition[0].isupper() or _definitions[_definition]["type"] == "object":
                 _obj = _definitions[_definition]
                 if "type" in _obj.keys():
                     if _obj["type"] == "object":
@@ -869,11 +883,14 @@ class Schema_interpreter:
                             _properties = _obj["properties"]
                             _keys = list(_properties.keys())
                             while len(_keys) > 0:
+                                _type = _prop['type'] if 'type' in _prop.keys() else '-'
+                                if _type == "object":
+                                    return
                                 _key = _keys.pop(0)
                                 _prop = _properties[_key]
                                 _new_attribute = {
                                     "value_name": f"{_key}",  # Prendo il nome dell'attributo
-                                    "data_type": f"{_prop['type'] if 'type' in _prop.keys() else '-' }",
+                                    "data_type": f"{_type}",
                                     "value_type": "-",
                                     "value_unit": "-",
                                     "healthiness_criteria": "refresh_rate",  # Standard
