@@ -3,6 +3,7 @@ import os
 import shutil
 import re
 from schema_exceptions import Schema_exception
+import copy
 
 
 class Schema_interpreter:
@@ -272,7 +273,7 @@ class Schema_interpreter:
             for _property in _properties:
                 if len(_property.keys()) > 0:
                     self.errors.append(f"- Error: some of the raw properties hasn't been recognized")
-        elif type(self.properties) is dict:
+        elif type(_properties) is dict:
             self._control_properties_dict(_properties)
         elif _properties is None:
             self.errors.append(f"- Error: 'properties' hasn't been found.")
@@ -554,21 +555,24 @@ class Schema_interpreter:
                     break
                 _iterator -= 1
             _path = _path[::-1]
-            _temp_pop = _path.pop()
-            if _temp_pop in self.common_definitions:
-                # self.errors.append(f"- {_temp_pop} is defined into {_common_schema}")
-                self.schema_details += f"-> Ref {_ref} is a DEFINITION in {_common_schema}\n\n"
-                return True
-            elif _temp_pop in self.external_ref:
-                # self.errors.append(f"- {_temp_pop} is an attribute of an object in {_common_schema}")
-                self.schema_details += f"-> Ref {_ref} is an ATTRIBUTE defined in {_common_schema}\n\n"
-                return True
-            elif _common_schema in self.schemas_commons:
-                return True
+            if len(_path) > 0:
+                _temp_pop = _path.pop()
+                if _temp_pop in self.common_definitions:
+                    # self.errors.append(f"- {_temp_pop} is defined into {_common_schema}")
+                    self.schema_details += f"-> Ref {_ref} is a DEFINITION in {_common_schema}\n\n"
+                    return True
+                elif _temp_pop in self.external_ref:
+                    # self.errors.append(f"- {_temp_pop} is an attribute of an object in {_common_schema}")
+                    self.schema_details += f"-> Ref {_ref} is an ATTRIBUTE defined in {_common_schema}\n\n"
+                    return True
+                elif _common_schema in self.schemas_commons:
+                    return True
+                else:
+                    # self.errors.append(f"- {_temp_pop} is a unknown and uncommon reference.")
+                    self.schema_details += f"-> Ref {_ref} is not defined.\n"
+                    return False
             else:
-                # self.errors.append(f"- {_temp_pop} is a unknown and uncommon reference.")
-                self.schema_details += f"-> Ref {_ref} is not defined.\n"
-                return False
+                return True
         elif re.search("schema", _ref):
             _ref_list = _ref.rsplit("/")
             for _part in _ref_list:
@@ -608,6 +612,8 @@ class Schema_interpreter:
                     if not self._is_known_ref(attribute["$ref"]):
                         self.errors.append(
                             f"- Error: '{attribute_name}' contains an unknown reference: '{attribute['$ref']}'")
+                    else:
+                        self._manage_ref(attribute, attribute_name)
                 else:
                     self.errors.append(f"- Error: unrecognized attribute. Name: '{attribute_name}'")
             elif type(attribute) is list:
@@ -829,14 +835,29 @@ class Schema_interpreter:
 
         self.schema_details += f"- {attribute_name} is an object (it's defined by ITS OWN PROPERTIES)"
         if "properties" in attribute.keys():
-            pass
-            # self._analyze_attribute(attribute["properties"], attribute_name + "[properties]")
+            self._control_raw_properties(dict(attribute["properties"]))
         elif "$ref" in attribute.keys():
             # self._analyze_attribute(attribute["$ref"], attribute_name + "[$ref]")
             pass
         elif "type" in attribute.keys():
-            a = self._is_attribute(attribute, attribute_name)
-            pass
+            # self._analyze_attribute(attribute, attribute_name)
+            pass # already added at the start of this method
+
+    def _manage_ref(self, attribute, attribute_name):
+        _temp_log = [f"Log of {attribute_name}"]
+        _new_attribute = {
+            "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
+            "data_type": "string",
+            "value_type": "-",
+            "value_unit": "-",
+            "healthiness_criteria": "refresh_rate",  # Standard
+            "healthiness_value": "300",  # Standard
+            "editable": "0",  # Standard
+            "checked": "False",
+            "raw_attribute": attribute
+        }
+        self.analyzed_attrs[attribute_name] = _new_attribute
+        self.attributes_log[attribute_name] = _temp_log
 
     def _manage_string(self, attribute, attribute_name):
         _value_type = "-"
@@ -866,58 +887,6 @@ class Schema_interpreter:
             _definition = _definitions.pop(_key)
             _eventually_constraint = self._check_constraint(_definition.keys())
             self._analyze_attribute(_definition, _key)
-            continue
-            if _eventually_constraint is not None:
-                _constraint_value = {**_definition[_eventually_constraint][0], **_definition[_eventually_constraint][1]}
-                _definition[_eventually_constraint] = _constraint_value
-            if _definition["type"] == "object":
-                pointer = None
-            a = None
-        return
-        for _definition in _definitions:
-            if _definition[0].isupper() or _definitions[_definition]["type"] == "object":
-                _obj = _definitions[_definition]
-                if "type" in _obj.keys():
-                    if _obj["type"] == "object":
-                        if "properties" in _obj.keys():
-                            _properties = _obj["properties"]
-                            _keys = list(_properties.keys())
-                            while len(_keys) > 0:
-                                _type = _prop['type'] if 'type' in _prop.keys() else '-'
-                                if _type == "object":
-                                    return
-                                _key = _keys.pop(0)
-                                _prop = _properties[_key]
-                                _new_attribute = {
-                                    "value_name": f"{_key}",  # Prendo il nome dell'attributo
-                                    "data_type": f"{_type}",
-                                    "value_type": "-",
-                                    "value_unit": "-",
-                                    "healthiness_criteria": "refresh_rate",  # Standard
-                                    "healthiness_value": "300",  # Standard
-                                    "editable": "0",  # Standard
-                                    "checked": "False",
-                                    "raw_attribute": f"{json.dumps(_prop)}"
-                                }
-                                self.analyzed_attrs[_key] = _new_attribute
-                                self.attributes_log[_key] = {}
-            else:
-                _obj = _definitions[_definition]
-                if "type" in _obj.keys():
-                    _prop = _obj
-                    _new_attribute = {
-                        "value_name": f"{_definition}",  # Prendo il nome dell'attributo
-                        "data_type": f"{_prop['type'] if 'type' in _prop.keys() else '-'}",
-                        "value_type": "-",
-                        "value_unit": "-",
-                        "healthiness_criteria": "refresh_rate",  # Standard
-                        "healthiness_value": "300",  # Standard
-                        "editable": "0",  # Standard
-                        "checked": "False",
-                        "raw_attribute": f"{json.dumps(_prop)}"
-                    }
-                    self.analyzed_attrs[_definition] = _new_attribute
-                    self.attributes_log[_definition] = {}
 
     def get_errors(self):
         return self.errors

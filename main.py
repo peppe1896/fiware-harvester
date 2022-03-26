@@ -54,7 +54,7 @@ if __name__ == "__main__":
             _ingestor = ingstr.PayloadsIngestor(_db_helper, result_folder, dictionary_link)
         _input = input("cmd> ")
         if _input == "create_db":
-            _hv.create_db_from_dict(also_wrongs=False)
+            _hv.create_db_from_dict(also_wrongs=False, overwrite=False)
         elif _input == "ingestor":
             _cmd = input("From? ")
             if _cmd == "file":

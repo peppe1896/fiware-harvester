@@ -4,6 +4,7 @@ import pandas as pd
 import json
 import schema_interpreter as s4c
 
+
 class SmartDataModelsHarvester:
 
     def __init__(self,
@@ -11,13 +12,13 @@ class SmartDataModelsHarvester:
                  domains=None,
                  download_folder="",
                  result_folder="",
-                 database = None):
+                 database=None):
 
         if domains is None:
             return
         self.domains = domains
         if download_folder == "":
-            self.download_folder = "/media/giuseppe/Archivio2/Download/"   # Where to downaload Repos
+            self.download_folder = "/media/giuseppe/Archivio2/Download/"  # Where to downaload Repos
         else:
             self.download_folder = download_folder
         self.loader = ld.Loader(self.download_folder)
@@ -44,7 +45,7 @@ class SmartDataModelsHarvester:
         return os.path.exists(self.result_folder + "schemas_location.json")
 
     def load_created_dict(self):
-        with open(self.result_folder+"schemas_location.json") as file:
+        with open(self.result_folder + "schemas_location.json") as file:
             self.location_schemas = json.load(file)
 
     def _prepare_location_schema(self):
@@ -82,9 +83,8 @@ class SmartDataModelsHarvester:
         for _key in _keys_to_rename:
             _temp = self.location_schemas.pop(_key, None)
 
-
-    def create_db_from_dict(self, create_pandas=False, also_wrongs=False):
-        #self._clean_location_schema()
+    def create_db_from_dict(self, create_pandas=False, also_wrongs=False, overwrite=False):
+        # self._clean_location_schema()
         self._prepare_location_schema()
         if create_pandas:
             self._create_pandas()
@@ -103,19 +103,21 @@ class SmartDataModelsHarvester:
                             _attr_log = self.schema_reader.get_attributes_log()
                             _esit, return_msg = self.db_helper.add_model((domain, subdomain, model,
                                                                           _scalar_attr["$schemaVersion"], _attributes,
-                                                                          _errors, _attr_log, _schema_content))
+                                                                          _errors, _attr_log, _schema_content),
+                                                                         overwrite)
                             if not _esit:
                                 print(return_msg)
-                                if input("Would you like to continue?") in ["False", "false", "no", "No", "NO", "FALSE"]:
+                                if input("Would you like to continue?") in ["False", "false", "no", "No", "NO",
+                                                                            "FALSE"]:
                                     return
                         else:
                             self.unsaved_models.append((model, subdomain, domain))
-        with open(self.result_folder+"Unsaved-Models.json", "w", encoding="utf8") as file:
+        with open(self.result_folder + "Unsaved-Models.json", "w", encoding="utf8") as file:
             json.dump(self.unsaved_models, file, indent=2)
 
     def _create_pandas(self):
         _columns = ["Domain", "Subdomain", "Model", "jsonschema", "time", "version"]
-        if not os.path.exists(self.result_folder+"db_schema-pandas.json"):
+        if not os.path.exists(self.result_folder + "db_schema-pandas.json"):
             self.pandas_dataframe = pd.DataFrame(columns=_columns)
             for domain in self.location_schemas.keys():
                 for subdomain in self.location_schemas[domain].keys():
@@ -133,10 +135,12 @@ class SmartDataModelsHarvester:
                                                   _scalar_attr["$schemaVersion"], _attributes,
                                                   _errors, _attr_log, _schema_content, self.timestamp))
 
-                        _row = {"Domain":[domain],"Subdomain": [subdomain], "Model":[model], "jsonschema":[_schema_content], "time":[self.timestamp], "version":[_scalar_attr["$schemaVersion"]]}
+                        _row = {"Domain": [domain], "Subdomain": [subdomain], "Model": [model],
+                                "jsonschema": [_schema_content], "time": [self.timestamp],
+                                "version": [_scalar_attr["$schemaVersion"]]}
                         _append = pd.DataFrame(_row, columns=_columns)
                         self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
-            with open(self.result_folder+"db_schema-pandas.json", "w") as file:
+            with open(self.result_folder + "db_schema-pandas.json", "w") as file:
                 _temp = self.pandas_dataframe.to_json(indent=2, force_ascii=False)
                 file.write(_temp)
 
@@ -167,5 +171,5 @@ class SmartDataModelsHarvester:
 
     def save_domain_dict(self):
         _keys_to_clean = ["AllSubjects", "ontologies_files"]
-        with open(self.result_folder+"schemas_location.json", "w") as file:
+        with open(self.result_folder + "schemas_location.json", "w") as file:
             json.dump(self.location_schemas, file, indent=2)

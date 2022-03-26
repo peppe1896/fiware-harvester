@@ -188,9 +188,9 @@ class DbSchemaHelper:
         _atts_log = json.dumps(_tuple[6])
         _schema = json.dumps(_tuple[7])
 
-        return (_domain, _subdomain, _model, _version, _atts, _errors, _atts_log, _schema)
+        return _domain, _subdomain, _model, _version, _atts, _errors, _atts_log, _schema
 
-    def add_model(self, _tuple):
+    def add_model(self, _tuple, overwrite):
         try:
             _t = self._prepare_tuple(_tuple)
             _domain = _t[0]
@@ -199,8 +199,13 @@ class DbSchemaHelper:
             _version = _t[3]
             self._default_version_procedure(_model, _subdomain, _domain, _version)
             self._procedure_add_id(_model, _subdomain, _domain, _version)
-            self.prepared_cursor_mysql.execute(f'INSERT INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE model="{_t[2]}"', _t)
             self.connector_mysql.commit()
+            _overwrite = "INSERT"
+            _end = f'ON DUPLICATE KEY UPDATE model="{_t[2]}"'
+            if overwrite:
+                _overwrite = "REPLACE"
+                _end = ""
+            self.prepared_cursor_mysql.execute(f'{_overwrite} INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) {_end}', _t)
             self.prepared_cursor_mysql.reset()
             return True, ""
         except mysql.connector.Error as err:
