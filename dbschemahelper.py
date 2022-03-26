@@ -1,5 +1,4 @@
 import ast
-import datetime
 import mysql.connector
 import json
 import statics
@@ -79,8 +78,9 @@ class DbSchemaHelper:
                       PRIMARY KEY (`Timestamp`)
                 );"""
         _function_delete_checked = """
-                CREATE FUNCTION delete_checked (json_doc JSON, checked VARCHAR(5))
+                CREATE FUNCTION filter_checked (json_doc JSON, checked VARCHAR(5))
                 RETURNS TEXT
+                DETERMINISTIC
                 RETURN ( SELECT JSON_OBJECTAGG(one_key, output)
                          FROM ( SELECT one_key, JSON_EXTRACT(json_doc, CONCAT('$.', one_key)) output
                                 FROM JSON_TABLE(JSON_KEYS(json_doc),
@@ -91,8 +91,8 @@ class DbSchemaHelper:
             _table_raw_schema_model,
             _table_default_versions,
             _table_map_id,
-            _table_rules
-            #_function_delete_checked
+            _table_rules,
+            _function_delete_checked
         ]
         for _table in _tables:
             try:
@@ -330,18 +330,13 @@ class DbSchemaHelper:
     def get_attributes(self, model=None, subdomain=None, domain=None, version=None, onlyChecked="", also_attributes_logs=False, excludeType=True, excludedAttr=[]):
         _attr_log = ""
         if also_attributes_logs:
-            _attr_log = "attributesLog"
-        _attributes = "attributes"
+            _attr_log = ", attributesLog"
         _exc_type_1 = ""
         _exc_type_2 = ""
-        if onlyChecked:
-            _attributes = f"delete_checked(attributes, \"{onlyChecked}\")"
-        if model is None and subdomain is None and domain is None:
-            _attributes = "attributes"
         if excludeType:
             _exc_type_1 = f'JSON_REMOVE('
             _exc_type_2 = f', "$.type")'
-        _query = f'select {_exc_type_1}{_attributes}{_exc_type_2}, model, subdomain, domain, version{_attr_log} from raw_schema_model WHERE version!=" "'
+        _query = f'select {_exc_type_1}attributes{_exc_type_2}, model, subdomain, domain, version{_attr_log} from raw_schema_model WHERE version!=" "'
         if model:
             _query += f' AND model="{model}"'
         if subdomain:
@@ -358,11 +353,22 @@ class DbSchemaHelper:
                 _tuple = query_res.pop(0)
                 _list = list(_tuple)
                 if _list[0] is not None:
-                    _list[0] = json.loads(_list[0])
-                    if also_attributes_logs:
-                        _list[5] = json.loads(_list[5])
+                    _attrs = json.loads(_list[0])
+                    _attr_keys = list(_attrs.keys())
+                    _temp = {}
+                    while len(_attr_keys) > 0:
+                        _attr_key = _attr_keys.pop(0)
+                        _obj = _attrs[_attr_key]
+                        if onlyChecked:
+                            if _obj["checked"] == onlyChecked:
+                                _temp[_attr_key] = _obj
+                        else:
+                            _temp[_attr_key] = _obj
+                    _list[0] = _temp
                 else:
                     _list[0] = {}
+                if also_attributes_logs:
+                    _list[5] = json.loads(_list[5])
                 _result.append(tuple(_list))
             return _result
         except mysql.connector.Error as err:
@@ -420,7 +426,7 @@ class DbSchemaHelper:
             return None
 
     def get_attribute(self, attribute_name, model=None, subdomain=None, domain=None, version=None, onlyChecked_True_False=None):
-        _query = f"""select model, subdomain, domain, version, attributes->"$.{attribute_name}" from raw_schema_model where json_contains(attributes->"$.*.value_name", '"{attribute_name}"', "$" )"""
+        _query = f"""select model, subdomain, domain, version, attributes->"$.{attribute_name}" from raw_schema_model where json_contains(attributes->>"$.*.value_name", '"{attribute_name}"', "$" )"""
         if model:
             _query += f' AND model="{model}"'
         if subdomain:
@@ -433,13 +439,14 @@ class DbSchemaHelper:
             _query += f' AND attributes->>"$.{attribute_name}.checked"="{onlyChecked_True_False}"'
         _query_res = self.generic_query(_query)
         _res = []
-        for item in _query_res:
-            _mdl = item[0]
-            _sbd = item[1]
-            _dmn = item[2]
-            _vrs = item[3]
-            _att = json.loads(item[4])
-            _res.append((_mdl, _sbd, _dmn, _vrs, _att))
+        if _query_res:
+            for item in _query_res:
+                _mdl = item[0]
+                _sbd = item[1]
+                _dmn = item[2]
+                _vrs = item[3]
+                _att = json.loads(item[4])
+                _res.append((_mdl, _sbd, _dmn, _vrs, _att))
         return _res
 
     def get_sbdom_dom(self, model, version=None):

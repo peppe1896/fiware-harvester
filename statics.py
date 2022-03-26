@@ -12,7 +12,7 @@ ATTRIBUTE_MASK = {
     "raw_attribute": "{}"
 }
 
-font_tuple = ("times", 11)
+FONT_TUPLE = ("times", 11)
 
 def add_to_log(message, log):
     log += message + "\n"
@@ -75,7 +75,7 @@ def window_read_json(json_value, name, title="Json visualizer"):
 
     json_val = json.dumps(json_value, indent="\t")
     label = tk.Label(app, text=f"{name}")
-    text = tk.Text(app, font=font_tuple)
+    text = tk.Text(app, font=FONT_TUPLE)
     label.pack()
     text.pack(expand=True, fill=tk.BOTH)
     text.insert(tk.END, json_val)
@@ -103,17 +103,17 @@ def window_edit_json(json_value, name, title="attribute_name"):
     app = tk.Tk()
     app.title(f"Edit attribute '{title}'")
     app.geometry("800x600")
-    v_name_lbl = tk.Label(app, text="value_name:",font=font_tuple)
+    v_name_lbl = tk.Label(app, text="value_name:", font=FONT_TUPLE)
     value_name = tk.Entry(app)
     v_name_lbl.pack()
     value_name.pack()
     #value_name.insert(0, json_value["value_name"])
-    v_type_lbl = tk.Label(app, text="value_type:",font=font_tuple)
+    v_type_lbl = tk.Label(app, text="value_type:", font=FONT_TUPLE)
     value_type = tk.Entry(app)
     v_type_lbl.pack()
     value_type.pack()
     #value_type.insert(0, json_value["value_type"])
-    v_unit_lbl = tk.Label(app, text="value_unit:",font=font_tuple)
+    v_unit_lbl = tk.Label(app, text="value_unit:", font=FONT_TUPLE)
     value_unit = tk.Entry(app)
     v_unit_lbl.pack()
     value_unit.pack()
@@ -125,15 +125,17 @@ def window_edit_json(json_value, name, title="attribute_name"):
     app.mainloop()
     #submit = Button(window, text='Submit', command=check).grid(row=3, column=1)
 
-def window_edit_attribute(attribute, attribute_name, title, model, subdomain, domain, version, db):
+def window_edit_attribute(attribute, attribute_name, title, model, subdomain, domain, version, db, text=""):
     import tkinter as tk
     import json
     app = tk.Tk()
     app.title(title)
 
     json_val = json.dumps(attribute, indent="\t")
-    label = tk.Label(app, text=f"Updating '{attribute_name}' of {model}, ver. {version}")
-    text = tk.Text(app, font=font_tuple)
+    label = tk.Label(app, text=f"Updating/Inserting (if new) attribute '{attribute_name}' in model '{model}', ver. '{version}'.\n "
+                               f"Domain '{domain}'/ Subdomain '{subdomain}'\n"
+                               f"{text}")
+    text = tk.Text(app, font=FONT_TUPLE)
     label.pack()
     text.pack(expand=True, fill=tk.BOTH)
     text.insert(tk.END, json_val)
@@ -144,14 +146,19 @@ def window_edit_attribute(attribute, attribute_name, title, model, subdomain, do
         new_attribute = json.loads(new_attribute)
         for _k in ATTRIBUTE_MASK.keys():
             if _k not in new_attribute.keys():
-                continue
+                print(f"Can't create this attribute. Key '{_k}' is missing...")
         if not db.attribute_exists(attribute_name, model, subdomain, domain, version):
             db.create_empty_attribute(attribute_name, model, subdomain, domain, version)
         for _k in new_attribute:
             db.update_json_attribute(model, subdomain, domain, version, attribute_name, field=_k, value_to_set=new_attribute[_k])
         app.destroy()
 
+    def reset():
+        text.delete("1.0", tk.END)
+        text.insert(tk.END, json_val)
+
     tk.Button(app, text="Update changes", command=update_attribute).pack()
+    tk.Button(app, text="Reset", command=reset).pack()
 
     app.mainloop()
 

@@ -3,7 +3,6 @@ import os
 import shutil
 import re
 from schema_exceptions import Schema_exception
-import copy
 
 
 class Schema_interpreter:

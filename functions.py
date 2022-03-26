@@ -7,10 +7,6 @@ from jsonschema import validate
 import keyvalueToNormalized as kvtn
 import normalizedToKeyvalue as ntkv
 
-a = {"b": "aa", "c": 1, "d": ["ff", "aa"]}
-b = {"b": "aa", "c": 1, "d": ["aa", "ff"]}
-
-
 def ordered(obj):
     if isinstance(obj, dict):
         return sorted((k, ordered(v)) for k, v in obj.items())
