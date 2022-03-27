@@ -40,15 +40,18 @@ class SimilarityChecker():
                      f' and write "True" in "checked".')
         #_value_type_4 = self._check_against_attrs_structure(attribute_key, "", schema_tuple) # Vuol dire che trova tutti, checked false e true
         #_value_types.extend(_value_type_4 if _value_type_4 else ["-"])
+        # Faccio un altro controllo, che vi sia stato assegnato un value_type
         _value_type_1 = self._check_against_attrs_of_schema(attribute_key, _model, _subdomain, _domain, _version)
         if _value_type_1:
             # Qui trovo l'attributo che è checked, quindi il value_type è valido e corrisponde al value type di s4c
             return self.s4c_dictionary.fit_value_type(_value_type_1)
+        #if input("Do you want to create a new attribute?\n ").lower() in ["yes", "y"]:
         statics.window_edit_attribute(
-            statics.ATTRIBUTE_MASK,
-            attribute_key, f"I couldn't find any attribute for '{attribute_key}'. Would you like to add it now?",
-                             _model, _subdomain, _domain, _version, self.db_helper)
-        return
+                statics.ATTRIBUTE_MASK,
+                attribute_key, f"I couldn't find any attribute for '{attribute_key}'. Would you like to add it now?",
+                                 _model, _subdomain, _domain, _version, self.db_helper,
+                                f"\nIf you're here, the attribute is not inside. Would you like to create a new attribute with '{attribute_key}' name?")
+        return None
 
 
     # MAIN CHECK - Se questo è valido, allora ho già il value type
@@ -58,7 +61,7 @@ class SimilarityChecker():
         #_schema_attrs = self.db_helper.get_attributes(model, subdomain, domain, onlyChecked="True", also_attributes_logs=False, excludeType=True)
         _attr = self.db_helper.get_attribute(attribute, model, subdomain, domain, version)
         if _attr:
-            if _attr[0]["checked"] == "True":
+            if _attr[0][4]["checked"] == "True":
                 return _attr["value_type"]
         return None
 
@@ -91,11 +94,14 @@ class SimilarityChecker():
                                               f"attributes of model '{_model}', in subdomain '{_subdomain}', domain '{_domain}' and version '{_version}'.")
 
             elif len(_common_attr) == 1:
-                print(f"This attribute '{attribute_key}' is a common attribute.")
                 _cm_attr = _common_attr[0]
-                statics.window_edit_attribute(_cm_attr[4], attribute_key, f"Common_attribute {attribute_key}",
-                                              model=_cm_attr[0], subdomain=_cm_attr[1], domain=_cm_attr[2], version=_cm_attr[3],
-                                              db=self.db_helper, text="\nUpdate attribute: set checked \"True\", edit eventually some new attributes, and then click update to save changes")
+                if _cm_attr[4]["checked"] == "False":
+                    print(f"This attribute '{attribute_key}' is a common attribute.")
+                    statics.window_edit_attribute(_cm_attr[4], attribute_key, f"Common attribute '{attribute_key}'",
+                                                  model=_cm_attr[0], subdomain=_cm_attr[1], domain=_cm_attr[2], version=_cm_attr[3],
+                                                  db=self.db_helper, text="\nUpdate attribute: set checked \"True\", edit eventually some new attributes, and then click update to save changes")
+                else:
+                    a = None
             else:
                 print(f"Found some versions of the common attribute '{attribute_key}'. Edit and update any of them and click on Save,"
                       f" or just close all of these window..")

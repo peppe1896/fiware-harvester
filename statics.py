@@ -127,6 +127,7 @@ def window_edit_json(json_value, name, title="attribute_name"):
 
 def window_edit_attribute(attribute, attribute_name, title, model, subdomain, domain, version, db, text=""):
     import tkinter as tk
+    from tkinter import messagebox
     import json
     app = tk.Tk()
     app.title(title)
@@ -149,8 +150,12 @@ def window_edit_attribute(attribute, attribute_name, title, model, subdomain, do
                 print(f"Can't create this attribute. Key '{_k}' is missing...")
         if not db.attribute_exists(attribute_name, model, subdomain, domain, version):
             db.create_empty_attribute(attribute_name, model, subdomain, domain, version)
-        for _k in new_attribute:
-            db.update_json_attribute(model, subdomain, domain, version, attribute_name, field=_k, value_to_set=new_attribute[_k])
+        else:
+            _ans = messagebox.askyesno("Attribute already exists. If you continue, you'll overwrite old definition:")
+            window_read_json(db.get_attribute(attribute_name, model, subdomain, domain, version)[4], f"Old attribute '{attribute_name}'")
+            if _ans == 1:
+                for _k in new_attribute:
+                    db.update_json_attribute(model, subdomain, domain, version, attribute_name, field=_k, value_to_set=new_attribute[_k])
         app.destroy()
 
     def reset():
