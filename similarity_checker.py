@@ -46,11 +46,11 @@ class SimilarityChecker():
             # Qui trovo l'attributo che è checked, quindi il value_type è valido e corrisponde al value type di s4c
             return self.s4c_dictionary.fit_value_type(_value_type_1)
         #if input("Do you want to create a new attribute?\n ").lower() in ["yes", "y"]:
-        statics.window_edit_attribute(
-                statics.ATTRIBUTE_MASK,
-                attribute_key, f"I couldn't find any attribute for '{attribute_key}'. Would you like to add it now?",
-                                 _model, _subdomain, _domain, _version, self.db_helper,
-                                f"\nIf you're here, the attribute is not inside. Would you like to create a new attribute with '{attribute_key}' name?")
+        #statics.window_edit_attribute(
+        #        statics.ATTRIBUTE_MASK,
+        #        attribute_key, f"I couldn't find any attribute for '{attribute_key}'. Would you like to add it now?",
+        #                         _model, _subdomain, _domain, _version, self.db_helper,
+        #                        f"\nIf you're here, the attribute is not inside. Would you like to create a new attribute with '{attribute_key}' name?")
         return None
 
 
@@ -103,8 +103,7 @@ class SimilarityChecker():
                 else:
                     a = None
             else:
-                print(f"Found some versions of the common attribute '{attribute_key}'. Edit and update any of them and click on Save,"
-                      f" or just close all of these window..")
+                print(f"Found some versions of the common attribute '{attribute_key}'. Edit any of them you need to update, and click on Update.")
                 for common in _common_attr:
                     statics.window_edit_attribute(common[4], attribute_key, f"Common_attribute {attribute_key}",
                                                   model=common[0], subdomain=common[1],

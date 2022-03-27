@@ -148,14 +148,19 @@ def window_edit_attribute(attribute, attribute_name, title, model, subdomain, do
         for _k in ATTRIBUTE_MASK.keys():
             if _k not in new_attribute.keys():
                 print(f"Can't create this attribute. Key '{_k}' is missing...")
+                return
         if not db.attribute_exists(attribute_name, model, subdomain, domain, version):
             db.create_empty_attribute(attribute_name, model, subdomain, domain, version)
         else:
-            _ans = messagebox.askyesno("Attribute already exists. If you continue, you'll overwrite old definition:")
-            window_read_json(db.get_attribute(attribute_name, model, subdomain, domain, version)[4], f"Old attribute '{attribute_name}'")
-            if _ans == 1:
-                for _k in new_attribute:
-                    db.update_json_attribute(model, subdomain, domain, version, attribute_name, field=_k, value_to_set=new_attribute[_k])
+            _ans = messagebox.askyesno("Attribute already exists", "If you continue, you'll overwrite old definition")
+            #window_read_json(db.get_attribute(attribute_name, model, subdomain, domain, version)[0][4], f"Old attribute '{attribute_name}'")
+            if _ans == 0:
+                return
+        for _k in new_attribute:
+            _value_to_set = new_attribute[_k]
+            if isinstance(new_attribute[_k], dict):
+                _value_to_set = json.dumps(new_attribute[_k])
+            db.update_json_attribute(model, subdomain, domain, version, attribute_name, field=_k, value_to_set=_value_to_set)
         app.destroy()
 
     def reset():

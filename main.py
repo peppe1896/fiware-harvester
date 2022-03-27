@@ -54,7 +54,11 @@ if __name__ == "__main__":
             _ingestor = ingstr.PayloadsIngestor(_db_helper, result_folder, dictionary_link)
         _input = input("cmd> ")
         if _input == "create_db":
-            _hv.create_db_from_dict(also_wrongs=False, overwrite=False)
+            _overwrite = input("Overwrite data?").lower()
+            _wipe = False
+            if _overwrite in ["yes", "y"]:
+                _wipe = True
+            _hv.create_db_from_dict(also_wrongs=False, overwrite=_wipe)
         elif _input == "ingestor":
             _cmd = input("From? ")
             if _cmd == "file":
@@ -143,12 +147,33 @@ if __name__ == "__main__":
                     a = _db_helper.count_attributes(_attr, _group_by)
                     b = None
                 elif _command == "query":
+                    _tables = _db_helper.generic_query("SHOW TABLES;")
+                    print("Tables in MySQL database:\n")
+                    [print(f"\t{x[0]}\n") for x in _tables]
                     _query = input("Write your query")
                     a = _db_helper.generic_query(_query)
                     b = None
                 elif _command == "add_rule":
                     rule = ("a", [{"a":0}], [{"a":1}], "BB", "aaa", "Service", "ServicePath")
                     _db_helper.add_rule(rule, multitenancy=True)
+                    a = None
+                elif _command == "delete_attr":
+                    _attr_name = input("Attribute name: ")
+                    _model = input("Model: ")
+                    _sub = input("Subdomain: ")
+                    _dom = input("Domain: ")
+                    _vers = input("Version: ")
+                    _db_helper.delete_attribute(_attr_name, _model, _sub, _dom, _vers)
+                elif _command == "edit_attribute":
+                    _attr_name = input("Attribute name: ")
+                    _model = input("Model: ")
+                    _sub = input("Subdomain: ")
+                    _dom = input("Domain: ")
+                    _vers = input("Version: ")
+                    _attribute = _db_helper.get_attribute(_attr_name, _model, _sub, _dom, _vers)[0]
+                    statics.window_edit_attribute(_attribute[4], _attr_name, f"Edit of attribute '{_attr_name}'",
+                                                  _model, _sub, _dom, _vers, _db_helper,
+                                                  text="Close this window to end the procedure without saving.\nEditing from 'main.py'")
                     a = None
                 _command = input("db> ")
         elif _input == "exit":

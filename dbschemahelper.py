@@ -199,13 +199,13 @@ class DbSchemaHelper:
             _version = _t[3]
             self._default_version_procedure(_model, _subdomain, _domain, _version)
             self._procedure_add_id(_model, _subdomain, _domain, _version)
-            self.connector_mysql.commit()
             _overwrite = "INSERT"
             _end = f'ON DUPLICATE KEY UPDATE model="{_t[2]}"'
             if overwrite:
                 _overwrite = "REPLACE"
                 _end = ""
             self.prepared_cursor_mysql.execute(f'{_overwrite} INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) {_end}', _t)
+            self.connector_mysql.commit()
             self.prepared_cursor_mysql.reset()
             return True, ""
         except mysql.connector.Error as err:
@@ -215,14 +215,17 @@ class DbSchemaHelper:
     def generic_query(self, query, returns=True):
         try:
             self.cursor_mysql.execute(query)
+            self.connector_mysql.commit()
             if returns:
                 return self.cursor_mysql.fetchall()
             else:
                 self.cursor_mysql.reset()
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
         except mysql.connector.Warning as err:
             print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
 
     def get_model_schema(self, model, subdomain=None, domain=None, version=None):
         _query = f'SELECT version, json_schema, subdomain, domain FROM raw_schema_model WHERE model="{model}"'
@@ -425,6 +428,7 @@ class DbSchemaHelper:
             print("Something went wrong: {}".format(err))
             return None
 
+    # Return python tuple with python dict of attributes
     def get_attribute(self, attribute_name, model=None, subdomain=None, domain=None, version=None, onlyChecked_True_False=None):
         _query = f"""select model, subdomain, domain, version, attributes->"$.{attribute_name}" from raw_schema_model where json_contains(attributes->>"$.*.value_name", '"{attribute_name}"', "$" )"""
         if model:
@@ -489,11 +493,17 @@ class DbSchemaHelper:
         return _same_schemas
 
     def update_json_attribute(self, model, subdomain, domain, version, attribute_name, field="checked", value_to_set="False"):
-        _query = f'UPDATE raw_schema_model ' \
-                 f'SET attributes=JSON_SET(attributes, "$.{attribute_name}.{field}", "{value_to_set}") ' \
-                 f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
+        _query = f"""UPDATE raw_schema_model  \
+                 SET attributes=JSON_SET(attributes, "$.{attribute_name}.{field}", )  \
+                 WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}" """
         try:
-            self.cursor_mysql.execute(_query)
+            #self.cursor_mysql.execute(_query)
+            _t = (value_to_set,)
+            self.prepared_cursor_mysql.execute(
+                f'UPDATE raw_schema_model '
+                f'SET attributes=JSON_SET(attributes, "$.{attribute_name}.{field}", %s) '
+                f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"', _t)
+
             self.connector_mysql.commit()
             self.cursor_mysql.reset()
         except mysql.connector.Error as err:
@@ -559,3 +569,9 @@ class DbSchemaHelper:
         if _query_res[0][0] > 0:
             return True
         return False
+
+    def delete_attribute(self, attribute_name, model, subdomain, domain, version):
+        _query = f"UPDATE raw_schema_model " \
+                 f"SET attributes=JSON_REMOVE(attributes, \"$.{attribute_name}\") " \
+                 f"WHERE model=\"{model}\" AND subdomain=\"{subdomain}\" AND domain=\"{domain}\" AND version=\"{version}\""
+        self.generic_query(_query, False)
