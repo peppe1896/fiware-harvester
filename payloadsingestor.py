@@ -1,7 +1,6 @@
 import parser_models as pm
 import json
 import requests
-import statics
 import ast
 import rule_generator
 
@@ -32,19 +31,6 @@ class PayloadsIngestor():
             return _triple
         return [[], [], []]
 
-    def open_via_api(self, command, api_uri, header=""):
-        if not header:
-            with open(api_uri) as api:
-                _temp = ""
-                for row in api:
-                    if row.startswith(command):
-                        _temp = row.replace(command + ": ", "")
-                        break
-                if _temp != "":
-                    return self.open_link(_temp)
-                else:
-                    return [[], [], []]
-
     def open_payloads_file(self, payloads_file: str):
         _list = []
         with open(payloads_file, encoding="utf8") as file:
@@ -57,14 +43,18 @@ class PayloadsIngestor():
         _triple = self.model_parser.get_results()
         return _triple
 
-    def analize_results(self, triple):
+    def analize_results(self, triple, context_broker, multitenancy, service, servicePath):
         _correct_payloads = triple[0]
         _uncorrect_payloads = triple[1]
         _error_thrown = triple[2]
         _itr = 0
         while _itr < len(_correct_payloads):
-            _rule = self.rule_generator.create_rule(_correct_payloads[_itr])
-            a = None
+            _rules = self.rule_generator.create_rule(_correct_payloads[_itr],
+                                                     context_brocker=context_broker,
+                                                     multitenancy=multitenancy,
+                                                     service=service, servicePath=servicePath)
+            for _rule in _rules:
+                self.database.add_rule(_rule, multitenancy)
             _itr += 1
         #_messages = "Payload Analysis results\n"
         #_iterator = len(_uncorrect_payloads) - 1

@@ -9,15 +9,6 @@ class DictEval():
         self.db_helper = db_helper
         self._load_dict()
 
-        #_Aa = {}
-        #for _item in self.dictionary:
-        #    if _item["type"] == "value type":
-        #        if _item["value"] in _Aa.keys():
-        #            _Aa[_item["value"]] += 1
-        #        else:
-        #            _Aa[_item["value"]] = 1
-
-        # a = None
 
     def _load_dict(self):
         _temp_dict = requests.get(self.dictionary_link+"?get_all").json()
@@ -25,15 +16,18 @@ class DictEval():
             self.dictionary = _temp_dict["content"]
 
     # attribute_name talvolta è già value_type. Ad esempio quando prendo il dato da un attributo checked.
-    def fit_value_type(self, attribute_name):
+    def fit_value_type(self, attribute_name, silent=True):
         _possibilities = []
         for item in self.dictionary:
             if item["type"] == "value type":
                 if item["value"] == attribute_name:
                     return item["value"], item["id"]
                 _attribute_name = attribute_name.lower()
+                _attribute_name = re.sub("[ -_]", "", _attribute_name)
                 _value_name = item["value"].lower()
-                _label = item["label"]
+                _value_name = re.sub("[ -_]", "", _value_name)
+                _label = item["label"].lower()
+                _label = re.sub("[ -_]", "", _label)
                 if len(_attribute_name) > len(_value_name):
                     _min_string = _value_name
                     _max_string = _attribute_name
@@ -41,16 +35,18 @@ class DictEval():
                     _min_string = _attribute_name
                     _max_string = _value_name
                 if _max_string.find(_min_string) != -1:
-                    _possibilities.append((_value_name, item["id"]))
+                    _possibilities.append((item["value"], item["id"]))
                     continue
                 elif _min_string.find(_max_string) != -1:
-                    _possibilities.append((_value_name, item["id"]))
+                    _possibilities.append((item["value"], item["id"]))
                     continue
                 _iterator = 1
                 while _iterator < len(_max_string) // 2:
                     if _max_string.find(_min_string, _iterator) != -1:
-                        _possibilities.append((_value_name, item["id"]))
+                        _possibilities.append((item["value"], item["id"]))
                         continue
                     _iterator += 1
-
+        if not silent:
+            print(f"Attribute '{attribute_name}': try to find some value_type simil to this name.")
+            print(f"Found some definition (exactly {len(_possibilities)}): "+str(_possibilities))
         return _possibilities

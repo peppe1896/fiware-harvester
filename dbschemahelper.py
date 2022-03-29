@@ -5,7 +5,7 @@ import statics
 
 
 class DbSchemaHelper:
-    def __init__(self, db_folder, backup_folder):
+    def __init__(self, db_folder, backup_folder, connection_details):
         self.base_folder = db_folder
         self.backup_base_folder = backup_folder
         self.connector_mysql = mysql.connector.connect(
@@ -75,6 +75,7 @@ class DbSchemaHelper:
                       `contextbroker` varchar(45) DEFAULT NULL,
                       `service` varchar(25) DEFAULT NULL,
                       `servicePath` varchar(96) DEFAULT NULL,
+                      `deviceId` varchar(100) DEFAULT NULL,
                       PRIMARY KEY (`Timestamp`)
                 );"""
         _function_delete_checked = """
@@ -91,8 +92,8 @@ class DbSchemaHelper:
             _table_raw_schema_model,
             _table_default_versions,
             _table_map_id,
-            _table_rules,
-            _function_delete_checked
+            _table_rules
+            # _function_delete_checked
         ]
         for _table in _tables:
             try:
@@ -157,7 +158,7 @@ class DbSchemaHelper:
         try:
             self.cursor_mysql.execute(_query)
             _res = self.cursor_mysql.fetchall()
-            if len(_res)==1:
+            if len(_res) == 1:
                 return _res[0][0]
             else:
                 return None
@@ -204,7 +205,8 @@ class DbSchemaHelper:
             if overwrite:
                 _overwrite = "REPLACE"
                 _end = ""
-            self.prepared_cursor_mysql.execute(f'{_overwrite} INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) {_end}', _t)
+            self.prepared_cursor_mysql.execute(
+                f'{_overwrite} INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) {_end}', _t)
             self.connector_mysql.commit()
             self.prepared_cursor_mysql.reset()
             return True, ""
@@ -243,7 +245,7 @@ class DbSchemaHelper:
                 if _dict_str is not None:
                     _string = _dict_str[1]
                     res = json.loads(_string)
-                    #res = ast.literal_eval(_string)
+                    # res = ast.literal_eval(_string)
                     return res
                 else:
                     return None
@@ -251,7 +253,8 @@ class DbSchemaHelper:
                 _default_version = self.get_default_version(model, subdomain, domain)
                 if _default_version is None:
                     return None
-                print(f"Found some versions.. Selecting default version for model '{model}' (version {_default_version}).")
+                print(
+                    f"Found some versions.. Selecting default version for model '{model}' (version {_default_version}).")
                 _temp_res = None
                 for item in query_res:
                     if item[0] == _default_version:
@@ -261,7 +264,8 @@ class DbSchemaHelper:
                             print("Ambiguous.. Specify other parameters, like subdomain or domain.")
                             return None
                         else:
-                            print(f"Same version of schema in different keys 'domain'({item[3]}) and 'subdomain'({item[2]}).")
+                            print(
+                                f"Same version of schema in different keys 'domain'({item[3]}) and 'subdomain'({item[2]}).")
                 return _temp_res
             return None
         except mysql.connector.Error as err:
@@ -330,7 +334,8 @@ class DbSchemaHelper:
             print("Something went wrong: {}".format(err))
             return None
 
-    def get_attributes(self, model=None, subdomain=None, domain=None, version=None, onlyChecked="", also_attributes_logs=False, excludeType=True, excludedAttr=[]):
+    def get_attributes(self, model=None, subdomain=None, domain=None, version=None, onlyChecked="",
+                       also_attributes_logs=False, excludeType=True, excludedAttr=[]):
         _attr_log = ""
         if also_attributes_logs:
             _attr_log = ", attributesLog"
@@ -372,7 +377,8 @@ class DbSchemaHelper:
                     _list[0] = {}
                 if also_attributes_logs:
                     _list[5] = json.loads(_list[5])
-                _result.append(tuple(_list))
+                if len(_list[0]) > 0:
+                    _result.append(tuple(_list))
             return _result
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
@@ -401,7 +407,7 @@ class DbSchemaHelper:
                     _atts = json.loads(_tuple[4])
                     _tple = (_tuple[0], _tuple[1], _tuple[2], _tuple[3], _atts)
                     _temp.append(_tple)
-                return _temp    # Seleziona tutti i modelli
+                return _temp  # Seleziona tutti i modelli
             if model and subdomain and domain and version:
                 return ast.literal_eval(q_res[0][4])
             if q_res is not None:
@@ -428,8 +434,10 @@ class DbSchemaHelper:
             print("Something went wrong: {}".format(err))
             return None
 
-    # Return python tuple with python dict of attributes
-    def get_attribute(self, attribute_name, model=None, subdomain=None, domain=None, version=None, onlyChecked_True_False=None):
+    # Return list of tuple with python dict of attributes
+    # It can find some attribute with same name if model .. are not specified.
+    def get_attribute(self, attribute_name, model=None, subdomain=None, domain=None, version=None,
+                      onlyChecked_True_False=None):
         _query = f"""select model, subdomain, domain, version, attributes->"$.{attribute_name}" from raw_schema_model where json_contains(attributes->>"$.*.value_name", '"{attribute_name}"', "$" )"""
         if model:
             _query += f' AND model="{model}"'
@@ -492,12 +500,13 @@ class DbSchemaHelper:
                 print(f"Different schemas with same model name. Model: '{model}'")
         return _same_schemas
 
-    def update_json_attribute(self, model, subdomain, domain, version, attribute_name, field="checked", value_to_set="False"):
+    def update_json_attribute(self, model, subdomain, domain, version, attribute_name, field="checked",
+                              value_to_set="False"):
         _query = f"""UPDATE raw_schema_model  \
                  SET attributes=JSON_SET(attributes, "$.{attribute_name}.{field}", )  \
                  WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}" """
         try:
-            #self.cursor_mysql.execute(_query)
+            # self.cursor_mysql.execute(_query)
             _t = (value_to_set,)
             self.prepared_cursor_mysql.execute(
                 f'UPDATE raw_schema_model '
@@ -524,22 +533,25 @@ class DbSchemaHelper:
         res = self.generic_query(_query)
         return res
 
-    def add_rule(self, rule, multitenancy=None):
+    def add_rule(self, rule, multitenancy=False):
         _name = rule[0]
         _ifs = json.dumps(rule[1])
         _thens = json.dumps(rule[2])
         _org = rule[3]
         _cb = rule[4]
-        _t = (_name, _ifs, _thens, _org, _cb)
+        _device = rule[5]
+        _t = (_name, _ifs, _thens, _org, _cb, _device)
         if multitenancy:
             _srv = rule[5]
             _service_path = rule[6]
-            _t = (_name, _ifs, _thens, _org, _cb, _srv, _service_path)
+            _t = (_name, _ifs, _thens, _org, _cb, _srv, _service_path, _device)
         try:
             if multitenancy:
-                self.prepared_cursor_mysql.execute(f'INSERT INTO EXT_values_rules VALUES (?,?,?,?,NOW(),"1",?,?,?)', _t)
+                self.prepared_cursor_mysql.execute(f'INSERT INTO EXT_values_rules VALUES (?,?,?,?,NOW(),"1",?,?,?,?)',
+                                                   _t)
             else:
-                self.prepared_cursor_mysql.execute(f'INSERT INTO EXT_values_rules VALUES (?,?,?,?,NOW(),"1", ?, Null, Null)', _t)
+                self.prepared_cursor_mysql.execute(
+                    f'INSERT INTO EXT_values_rules VALUES (?,?,?,?,NOW(),"1", ?, Null, Null,?)', _t)
             self.connector_mysql.commit()
             self.prepared_cursor_mysql.reset()
         except mysql.connector.Error as err:
@@ -575,3 +587,13 @@ class DbSchemaHelper:
                  f"SET attributes=JSON_REMOVE(attributes, \"$.{attribute_name}\") " \
                  f"WHERE model=\"{model}\" AND subdomain=\"{subdomain}\" AND domain=\"{domain}\" AND version=\"{version}\""
         self.generic_query(_query, False)
+
+    def attribute_is_checked(self, attribute_name, model, subdomain, domain, version):
+        _query = f"SELECT count(*) " \
+                 f"FROM attrs WHERE model='{model}' AND subdomain='{subdomain}' AND domain='{domain}' AND version='{version}' " \
+                 f"AND checked='True' AND value_name='{attribute_name}'"
+        _res = self.generic_query(_query, True)
+        if len(_res) > 0:
+            if _res[0][0] > 0:
+                return True
+        return False

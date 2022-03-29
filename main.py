@@ -29,6 +29,10 @@ domains = [
     "SmartHealth",
     "SmartManufacturing"
 ]
+host = "localhost",
+user = "peppe1896",
+password = "Password1!",
+database = "smartdatamodels"
 
 ########
 # MAIN #
@@ -41,7 +45,7 @@ if __name__ == "__main__":
     _dict_evaluator = None
     while True:
         if _db_helper is None:
-            _db_helper = db.DbSchemaHelper(result_folder, backup_folder)
+            _db_helper = db.DbSchemaHelper(result_folder, backup_folder, (host, user, password, database))
         if _hv is None:
             _hv = hv.SmartDataModelsHarvester(
                 base_link=base_link,
@@ -62,14 +66,28 @@ if __name__ == "__main__":
         elif _input == "ingestor":
             _cmd = input("From? ")
             if _cmd == "file":
+                context_broker = input("Context broker: ")
+                multitenancy = True if input("Multitenancy? ").lower() in ["yes", "y"] else False
+                service = ""
+                servicePath = ""
+                if multitenancy:
+                    service = input("Service: ({'Fiware-Service': 'Tampere'} for example)")
+                    servicePath = input("Service path: (/ for example)")
                 file = statics.ask_open_file("json")
-                _Res = _ingestor.open_payloads_file(file.name)
-                _ingestor.analize_results(_Res)
+                _analyzed_payloads = _ingestor.open_payloads_file(file.name)
+                _ingestor.analize_results(_analyzed_payloads, context_broker, multitenancy, service, servicePath)
             elif _cmd == "url":
                 _link = input("Write link:")
                 _header = input("Header: \nFor Tampere multitenancy server, {'Fiware-Service': 'Tampere'}")
-                a = _ingestor.open_link(_link, header=_header)
-                _ingestor.analize_results(a)
+                context_broker = input("Context broker: ")
+                multitenancy = True if input("Multitenancy?").lower() in ["yes", "y"] else False
+                service = ""
+                servicePath = ""
+                if multitenancy:
+                    service = _header
+                    servicePath = "/"
+                _analyzed_payloads = _ingestor.open_link(_link, header=_header)
+                _ingestor.analize_results(_analyzed_payloads, context_broker, multitenancy, service, servicePath)
         elif _input == "db":
             _command = input("db> ")
             while _command != "exit":

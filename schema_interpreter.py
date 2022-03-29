@@ -585,6 +585,7 @@ class Schema_interpreter:
         if self._is_attribute(attribute, attribute_name):
             if type(attribute) is dict:
                 self.schema_details += "-> Attribute: \t" + attribute_name + "\n"
+                _eventually_constraint = self._check_constraint(attribute.keys())
                 if "type" in attribute.keys():
                     _attr_type = attribute["type"]
                     if "description" in attribute.keys():
@@ -613,6 +614,8 @@ class Schema_interpreter:
                             f"- Error: '{attribute_name}' contains an unknown reference: '{attribute['$ref']}'")
                     else:
                         self._manage_ref(attribute, attribute_name)
+                elif _eventually_constraint:
+                    self._manage_object(attribute[_eventually_constraint], attribute_name, True)
                 else:
                     self.errors.append(f"- Error: unrecognized attribute. Name: '{attribute_name}'")
             elif type(attribute) is list:
@@ -688,7 +691,7 @@ class Schema_interpreter:
                                 else:
                                     a = None
                             if "format" in item.keys():
-                                _temp_log.append("")
+                                _temp_log.append("Format: "+item["format"])
             else:
                 if "type" in attribute["items"][0]:
                     _temp = attribute["items"][0]["type"]
@@ -815,12 +818,12 @@ class Schema_interpreter:
         self.analyzed_attrs[attribute_name] = _new_attribute
         self.attributes_log[attribute_name] = _temp_log
 
-    def _manage_object(self, attribute, attribute_name):
+    def _manage_object(self, attribute, attribute_name, _stop=False):
         _temp_log = [f"Log of {attribute_name}"]
         _value_type = "-"
         _new_attribute = {
             "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
-            "data_type": "info",
+            "data_type": "json",
             "value_type": f"{_value_type}",
             "value_unit": "-",
             "healthiness_criteria": "refresh_rate",  # Standard
@@ -833,14 +836,15 @@ class Schema_interpreter:
         self.attributes_log[attribute_name] = _temp_log
 
         self.schema_details += f"- {attribute_name} is an object (it's defined by ITS OWN PROPERTIES)"
-        if "properties" in attribute.keys():
-            self._control_raw_properties(dict(attribute["properties"]))
-        elif "$ref" in attribute.keys():
-            # self._analyze_attribute(attribute["$ref"], attribute_name + "[$ref]")
-            pass
-        elif "type" in attribute.keys():
-            # self._analyze_attribute(attribute, attribute_name)
-            pass # already added at the start of this method
+        if not _stop:
+            if "properties" in attribute.keys():
+                self._control_raw_properties(dict(attribute["properties"]))
+            elif "$ref" in attribute.keys():
+                # self._analyze_attribute(attribute["$ref"], attribute_name + "[$ref]")
+                pass
+            elif "type" in attribute.keys():
+                # self._analyze_attribute(attribute, attribute_name)
+                pass # already added at the start of this method
 
     def _manage_ref(self, attribute, attribute_name):
         _temp_log = [f"Log of {attribute_name}"]
@@ -860,15 +864,21 @@ class Schema_interpreter:
 
     def _manage_string(self, attribute, attribute_name):
         _value_type = "-"
+        _value_unit = "-"
+        _data_type = "string"
         _temp_log = [f"Log of {attribute_name}"]
         if "format" in attribute.keys():
             _temp_log.append(f"Found 'format': {attribute['format']}. It will be default value_type.")
             _value_type = attribute['format']
+            if _value_type == "date-time":
+                _value_unit = "datetime"
+                _data_type = "datetime"
+
         _new_attribute = {
             "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
-            "data_type": "string",
+            "data_type": f"{_data_type}",
             "value_type": f"{_value_type}",
-            "value_unit": "-",
+            "value_unit": f"{_value_unit}",
             "healthiness_criteria": "refresh_rate",  # Standard
             "healthiness_value": "300",  # Standard
             "editable": "0",  # Standard
