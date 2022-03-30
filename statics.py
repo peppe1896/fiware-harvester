@@ -14,6 +14,7 @@ ATTRIBUTE_MASK = {
 
 FONT_TUPLE = ("times", 11)
 
+# Log should be a file
 def add_to_log(message, log):
     log += message + "\n"
 
@@ -82,15 +83,16 @@ def window_read_json(json_value, name, title="Json visualizer"):
     text.config(state=tk.DISABLED, tabs="3")
     app.mainloop()
 
-def ask_open_file(type):
+def ask_open_file(type, title=""):
     import tkinter as tk
     from tkinter import filedialog
     root = tk.Tk()
     if type == "json":
+        root.title = title
         _temp = []
 
         def openFileJson(_temp):
-            res = filedialog.askopenfile(filetypes=[("Json files", "*.json")])
+            res = filedialog.askopenfile(title=title, filetypes=[("Json files", "*.json")])
             _temp.append(res)
 
         tk.Button(root, text="Select a json file", command=openFileJson(_temp))
@@ -177,13 +179,16 @@ def load_db_config(file_location):
     with open(file_location) as dbconfig:
         return json.load(dbconfig)
 
-def ask_choose_folder():
+def ask_choose_folder(title):
     import tkinter as tk
     from tkinter import filedialog
     root = tk.Tk()
-    res = filedialog.askdirectory()#filedialog.askopenfile(filetypes=[("Json files", "*.json")])
+    root.title(title)
+    res = filedialog.askdirectory(title=title)
     root.destroy()
-    return res + "/"
-
+    if isinstance(res, str):
+        return res + "/"
+    else:
+        return
 
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 ###########
 # IMPORTS #
 ###########
@@ -5,15 +6,14 @@ import harvester as hv
 import dbschemahelper as db
 import payloadsingestor as ingstr
 import statics
-import os
 ###############
 # DEFINITIONS #
 ###############
 base_link = "https://github.com/smart-data-models/"             # Don't change
 dictionary_link = "https://processloader.snap4city.org/processloader/api/dictionary/"
-download_folder = statics.ask_choose_folder()#"/media/giuseppe/Archivio2/Download/"#filedialog.askdirectory() + "/"#os.path.dirname(__file__)+ "/Download/"       # Must end with /
-result_folder = statics.ask_choose_folder()#os.path.dirname(__file__) + "/Results/" #filedialog.askdirectory() + "/" #os.path.dirname(__file__)+ "/Results/"          # Must end with /
-db_config_file = statics.ask_open_file("json")#os.path.dirname(__file__) + "/dbconfig.json"
+download_folder = statics.ask_choose_folder("Select download folder")#"/media/giuseppe/Archivio2/Download/"#filedialog.askdirectory() + "/"#os.path.dirname(__file__)+ "/Download/"       # Must end with /
+result_folder = statics.ask_choose_folder("Select results folder")#os.path.dirname(__file__) + "/Results/" #filedialog.askdirectory() + "/" #os.path.dirname(__file__)+ "/Results/"          # Must end with /
+db_config_file = statics.ask_open_file("json", "Select database config file")#os.path.dirname(__file__) + "/dbconfig.json"
 domains = [
     "data-models",
     "SmartCities",
