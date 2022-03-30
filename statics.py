@@ -172,4 +172,18 @@ def window_edit_attribute(attribute, attribute_name, title, model, subdomain, do
 
     app.mainloop()
 
+def load_db_config(file_location):
+    import json
+    with open(file_location) as dbconfig:
+        return json.load(dbconfig)
+
+def ask_choose_folder():
+    import tkinter as tk
+    from tkinter import filedialog
+    root = tk.Tk()
+    res = filedialog.askdirectory()#filedialog.askopenfile(filetypes=[("Json files", "*.json")])
+    root.destroy()
+    return res + "/"
+
+
 

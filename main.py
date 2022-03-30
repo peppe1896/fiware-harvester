@@ -11,9 +11,9 @@ import os
 ###############
 base_link = "https://github.com/smart-data-models/"             # Don't change
 dictionary_link = "https://processloader.snap4city.org/processloader/api/dictionary/"
-download_folder = "/media/giuseppe/Archivio2/Download/"#filedialog.askdirectory() + "/"#os.path.dirname(__file__)+ "/Download/"       # Must end with /
-result_folder = os.path.dirname(__file__) + "/Results/" #filedialog.askdirectory() + "/" #os.path.dirname(__file__)+ "/Results/"          # Must end with /
-backup_folder = "/media/giuseppe/Archivio2/Download/Backup/"#os.path.dirname(__file__)+ "/Results/Backup/" #filedialog.askdirectory() + "/"
+download_folder = statics.ask_choose_folder()#"/media/giuseppe/Archivio2/Download/"#filedialog.askdirectory() + "/"#os.path.dirname(__file__)+ "/Download/"       # Must end with /
+result_folder = statics.ask_choose_folder()#os.path.dirname(__file__) + "/Results/" #filedialog.askdirectory() + "/" #os.path.dirname(__file__)+ "/Results/"          # Must end with /
+db_config_file = statics.ask_open_file("json")#os.path.dirname(__file__) + "/dbconfig.json"
 domains = [
     "data-models",
     "SmartCities",
@@ -29,23 +29,20 @@ domains = [
     "SmartHealth",
     "SmartManufacturing"
 ]
-host = "localhost",
-user = "peppe1896",
-password = "Password1!",
-database = "smartdatamodels"
 
 ########
 # MAIN #
 ########
 if __name__ == "__main__":
-    statics.create_folders([download_folder, result_folder, backup_folder])
+    statics.create_folders([download_folder, result_folder])
+    dbconfig = statics.load_db_config(db_config_file)
     _hv = None
     _db_helper = None
     _ingestor = None
     _dict_evaluator = None
     while True:
         if _db_helper is None:
-            _db_helper = db.DbSchemaHelper(result_folder, backup_folder, (host, user, password, database))
+            _db_helper = db.DbSchemaHelper(dbconfig)
         if _hv is None:
             _hv = hv.SmartDataModelsHarvester(
                 base_link=base_link,

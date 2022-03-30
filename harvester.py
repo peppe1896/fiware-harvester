@@ -1,6 +1,5 @@
 import loader as ld
 import os
-import pandas as pd
 import json
 import schema_interpreter as s4c
 
@@ -83,65 +82,33 @@ class SmartDataModelsHarvester:
         for _key in _keys_to_rename:
             _temp = self.location_schemas.pop(_key, None)
 
-    def create_db_from_dict(self, create_pandas=False, also_wrongs=False, overwrite=False):
+    def create_db_from_dict(self, also_wrongs=False, overwrite=False):
         self._prepare_location_schema()
-        if create_pandas:
-            self._create_pandas()
-        else:
-            for domain in self.location_schemas.keys():
-                for subdomain in self.location_schemas[domain].keys():
-                    for model in self.location_schemas[domain][subdomain].keys():
-                        _schema_link = self.location_schemas[domain][subdomain][model]
-                        with open(_schema_link, encoding="utf8") as _json_schema:
-                            _schema_content = json.load(_json_schema)
-                        self.schema_reader.procedure(_schema_link, domain, subdomain, model)
-                        if model not in self.schema_reader.get_wrongs() or also_wrongs:
-                            _scalar_attr = self.schema_reader.get_scalar_attribute()
-                            _attributes = self.schema_reader.get_s4c_attrs()
-                            _errors = self.schema_reader.get_errors()
-                            _attr_log = self.schema_reader.get_attributes_log()
-                            _esit, return_msg = self.db_helper.add_model((domain, subdomain, model,
-                                                                          _scalar_attr["$schemaVersion"], _attributes,
-                                                                          _errors, _attr_log, _schema_content),
-                                                                         overwrite)
-                            if not _esit:
-                                print(return_msg)
-                                if input("Would you like to continue?") in ["False", "false", "no", "No", "NO",
-                                                                            "FALSE"]:
-                                    return
-                        else:
-                            self.unsaved_models.append((model, subdomain, domain))
-        with open(self.result_folder + "Unsaved-Models.json", "w", encoding="utf8") as file:
-            json.dump(self.unsaved_models, file, indent=2)
-
-    def _create_pandas(self):
-        _columns = ["Domain", "Subdomain", "Model", "jsonschema", "time", "version"]
-        if not os.path.exists(self.result_folder + "db_schema-pandas.json"):
-            self.pandas_dataframe = pd.DataFrame(columns=_columns)
-            for domain in self.location_schemas.keys():
-                for subdomain in self.location_schemas[domain].keys():
-                    for model in self.location_schemas[domain][subdomain].keys():
-                        _schema_link = self.location_schemas[domain][subdomain][model]
-                        with open(_schema_link) as _json_schema:
-                            _schema_content = _json_schema.read()
-
-                        self.schema_reader.procedure(_schema_link, domain, subdomain, model)
+        for domain in self.location_schemas.keys():
+            for subdomain in self.location_schemas[domain].keys():
+                for model in self.location_schemas[domain][subdomain].keys():
+                    _schema_link = self.location_schemas[domain][subdomain][model]
+                    with open(_schema_link, encoding="utf8") as _json_schema:
+                        _schema_content = json.load(_json_schema)
+                    self.schema_reader.procedure(_schema_link, domain, subdomain, model)
+                    if model not in self.schema_reader.get_wrongs() or also_wrongs:
                         _scalar_attr = self.schema_reader.get_scalar_attribute()
                         _attributes = self.schema_reader.get_s4c_attrs()
                         _errors = self.schema_reader.get_errors()
-                        _attr_log = str(self.schema_reader.get_attributes_log())
-                        self.db_helper.add_model((domain, subdomain, model,
-                                                  _scalar_attr["$schemaVersion"], _attributes,
-                                                  _errors, _attr_log, _schema_content, self.timestamp))
-
-                        _row = {"Domain": [domain], "Subdomain": [subdomain], "Model": [model],
-                                "jsonschema": [_schema_content], "time": [self.timestamp],
-                                "version": [_scalar_attr["$schemaVersion"]]}
-                        _append = pd.DataFrame(_row, columns=_columns)
-                        self.pandas_dataframe = pd.concat([self.pandas_dataframe, _append], ignore_index=True)
-            with open(self.result_folder + "db_schema-pandas.json", "w") as file:
-                _temp = self.pandas_dataframe.to_json(indent=2, force_ascii=False)
-                file.write(_temp)
+                        _attr_log = self.schema_reader.get_attributes_log()
+                        _esit, return_msg = self.db_helper.add_model((domain, subdomain, model,
+                                                                      _scalar_attr["$schemaVersion"], _attributes,
+                                                                      _errors, _attr_log, _schema_content),
+                                                                     overwrite)
+                        if not _esit:
+                            print(return_msg)
+                            if input("Would you like to continue?") in ["False", "false", "no", "No", "NO",
+                                                                        "FALSE"]:
+                                return
+                    else:
+                        self.unsaved_models.append((model, subdomain, domain))
+        with open(self.result_folder + "Unsaved-Models.json", "w", encoding="utf8") as file:
+            json.dump(self.unsaved_models, file, indent=2)
 
     def load_required_files(self):
         for domain in self.domains:

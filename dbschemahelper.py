@@ -5,14 +5,12 @@ import statics
 
 
 class DbSchemaHelper:
-    def __init__(self, db_folder, backup_folder, connection_details):
-        self.base_folder = db_folder
-        self.backup_base_folder = backup_folder
+    def __init__(self, connection_details):
         self.connector_mysql = mysql.connector.connect(
-            host="localhost",
-            user="peppe1896",
-            password="Password1!",
-            database="smartdatamodels"
+            host=connection_details["host"],
+            user=connection_details["user"],
+            password=connection_details["password"],
+            database=connection_details["database"]
         )
         self.prepared_cursor_mysql = self.connector_mysql.cursor(prepared=True)
         self.cursor_mysql = self.connector_mysql.cursor(buffered=True)
