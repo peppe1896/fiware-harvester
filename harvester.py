@@ -84,7 +84,6 @@ class SmartDataModelsHarvester:
             _temp = self.location_schemas.pop(_key, None)
 
     def create_db_from_dict(self, create_pandas=False, also_wrongs=False, overwrite=False):
-        # self._clean_location_schema()
         self._prepare_location_schema()
         if create_pandas:
             self._create_pandas()

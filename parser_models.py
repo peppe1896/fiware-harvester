@@ -51,6 +51,7 @@ class Parser():
                 _schema = self.db_helper.get_model_schema(_payload_model)
                 try:
                     validate(payload, _schema)
+                    print(f"From of type '{payload['type']}' from device '{payload['id']} has been parsed.")
                     self.validated_payloads.append(((payload,_raw_payload[1]), (_payload_model, _schema_key[1], _schema_key[2], _schema_key[0])))
                 except Exception as e:
                     _unval_errors = {"unvalidated": [], "errors": []}

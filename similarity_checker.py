@@ -86,7 +86,7 @@ class SimilarityChecker():
                 val_type = _attr[0][4]["value_type"]
                 print(f"Attribute '{attribute}' is checked. Expect to have '{val_type}' inside Snap4City dictionary")
                 _temp = self.s4c_dictionary.fit_value_type(val_type, silent=True)
-                if isinstance(_temp, str):
+                if isinstance(_temp, tuple):
                     return _temp
                 else:
                     print(f"Mismatch: value_type inside attribute is wrong. Value_type: '{val_type}'. Assumed as value_type: '{val_type}'")

@@ -57,12 +57,13 @@ if __name__ == "__main__":
         if _ingestor is None:
             _ingestor = ingstr.PayloadsIngestor(_db_helper, result_folder, dictionary_link)
         _input = input("cmd> ")
-        if _input == "create_db":
+        if _input == "harvester":
             _overwrite = input("Overwrite data?").lower()
             _wipe = False
+            _also_wrongs = True if input("Also wrong models? ").lower() in ["yes", "y"] else False
             if _overwrite in ["yes", "y"]:
                 _wipe = True
-            _hv.create_db_from_dict(also_wrongs=False, overwrite=_wipe)
+            _hv.create_db_from_dict(also_wrongs=_also_wrongs, overwrite=_wipe)
         elif _input == "ingestor":
             _cmd = input("From? ")
             if _cmd == "file":
@@ -71,8 +72,8 @@ if __name__ == "__main__":
                 service = ""
                 servicePath = ""
                 if multitenancy:
-                    service = input("Service: ({'Fiware-Service': 'Tampere'} for example)")
-                    servicePath = input("Service path: (/ for example)")
+                    service = input("Service: ('Tampere', for example)")
+                    servicePath = input("Service path: ('/' for example)")
                 file = statics.ask_open_file("json")
                 _analyzed_payloads = _ingestor.open_payloads_file(file.name)
                 _ingestor.analize_results(_analyzed_payloads, context_broker, multitenancy, service, servicePath)

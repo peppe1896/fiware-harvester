@@ -16,7 +16,7 @@ class DictEval():
             self.dictionary = _temp_dict["content"]
 
     # attribute_name talvolta è già value_type. Ad esempio quando prendo il dato da un attributo checked.
-    def fit_value_type(self, attribute_name, silent=True):
+    def fit_value_type(self, attribute_name, silent=False):
         _possibilities = []
         for item in self.dictionary:
             if item["type"] == "value type":
@@ -47,6 +47,6 @@ class DictEval():
                         continue
                     _iterator += 1
         if not silent:
-            print(f"Attribute '{attribute_name}': try to find some value_type simil to this name.")
-            print(f"Found some definition (exactly {len(_possibilities)}): "+str(_possibilities))
+            print(f"\tAttribute '{attribute_name}': try to find some value_type simil to this name.")
+            print(f"\tFound some definition (exactly {len(_possibilities)}): "+str(_possibilities))
         return _possibilities
