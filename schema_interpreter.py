@@ -615,7 +615,7 @@ class Schema_interpreter:
                     else:
                         self._manage_ref(attribute, attribute_name)
                 elif _eventually_constraint:
-                    self._manage_object(attribute[_eventually_constraint], attribute_name, True)
+                    self._manage_object(attribute, attribute_name, True)
                 else:
                     self.errors.append(f"- Error: unrecognized attribute. Name: '{attribute_name}'")
             elif type(attribute) is list:
