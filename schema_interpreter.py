@@ -665,7 +665,7 @@ class Schema_interpreter:
     def _manage_array(self, attribute, attribute_name):
         _value_type = "-"
         _data_type = "-"
-        _temp_log = [f"Log of {attribute_name}"]
+        _temp_log = []
         if "items" in attribute.keys():
             if type(attribute["items"]) is dict:
                 _eventually_constraint = self._check_constraint(attribute["items"].keys())
@@ -742,7 +742,7 @@ class Schema_interpreter:
             self.schema_details += "\tNo items found for this array - Error.\n"
 
     def _manage_numeric(self, attribute, attribute_name):
-        _temp_log = [f"Log of {attribute_name}"]
+        _temp_log = []
         _value_unit = "-"
         _value_type = "-"
         _attr_keys = attribute.keys()
@@ -769,7 +769,7 @@ class Schema_interpreter:
         self.attributes_log[attribute_name] = _temp_log
 
     def _manage_integer(self, attribute, attribute_name):
-        _temp_log = [f"Log of {attribute_name}"]
+        _temp_log = []
         _new_attribute = {
             "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
             "data_type": "integer",  # Se sono in questo metodo, sono sicuramente un intero
@@ -785,7 +785,7 @@ class Schema_interpreter:
         self.attributes_log[attribute_name] = _temp_log
 
     def _manage_boolean(self, attribute, attribute_name):
-        _temp_log = [f"Log of {attribute_name}"]
+        _temp_log = []
         _value_type = "-"
         _new_attribute = {
             "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
@@ -802,7 +802,7 @@ class Schema_interpreter:
         self.attributes_log[attribute_name] = _temp_log
 
     def _manage_null(self, attribute, attribute_name):
-        _temp_log = [f"Log of {attribute_name}"]
+        _temp_log = []
         _value_type = "-"
         _new_attribute = {
             "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
@@ -819,7 +819,7 @@ class Schema_interpreter:
         self.attributes_log[attribute_name] = _temp_log
 
     def _manage_object(self, attribute, attribute_name, _stop=False):
-        _temp_log = [f"Log of {attribute_name}"]
+        _temp_log = []
         _value_type = "-"
         _new_attribute = {
             "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
@@ -847,7 +847,7 @@ class Schema_interpreter:
                 pass # already added at the start of this method
 
     def _manage_ref(self, attribute, attribute_name):
-        _temp_log = [f"Log of {attribute_name}"]
+        _temp_log = []
         _new_attribute = {
             "value_name": f"{attribute_name}",  # Prendo il nome dell'attributo
             "data_type": "string",
@@ -866,7 +866,7 @@ class Schema_interpreter:
         _value_type = "-"
         _value_unit = "-"
         _data_type = "string"
-        _temp_log = [f"Log of {attribute_name}"]
+        _temp_log = []
         if "format" in attribute.keys():
             _temp_log.append(f"Found 'format': {attribute['format']}. It will be default value_type.")
             _value_type = attribute['format']

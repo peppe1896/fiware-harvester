@@ -94,7 +94,7 @@ class DbSchemaHelper:
                                 HAVING output->>'$.checked' = checked ) subquery );"""
 
         _table_context_brokers = """
-                CREATE TABLE EXT_brokers IF NOT EXISTS (
+                CREATE TABLE IF NOT EXISTS EXT_brokers (
                     organization VARCHAR(50) NOT NULL,
                     contextBrokerID VARCHAR(50) NOT NULL,
                     accessLink VARCHAR(50) NOT NULL,
@@ -618,3 +618,35 @@ class DbSchemaHelper:
             if _res[0][0] > 0:
                 return True
         return False
+
+    def get_brokers(self):
+        _query = "SELECT * FROM EXT_brokers"
+        return self.generic_query(_query, True)
+
+    def set_broker_status(self, context_broker_link, status):
+        _query = f"UPDATE TABLE EXT_brokers SET status='{status}' WHERE accessLink='{context_broker_link}'"
+        self.generic_query(_query, False)
+
+    def get_external_update(self):
+        _query = f"SELECT model, subdomain, domain, version, attributes, attributesLog " \
+                 f"FROM raw_schema_model"
+        _query_res = self.generic_query(_query, True)
+        _temp = []
+        while len(_query_res) > 0:
+            _tuple = list(_query_res.pop())
+            _tuple[4] = json.loads(_tuple[4])
+            _tuple[5] = json.loads(_tuple[5])
+            _temp.append(tuple(_tuple))
+        return _temp
+
+
+    def add_rule_problem(self, model, subdomain, domain, version, error):
+        _query = f"UPDATE raw_schema_model " \
+                 f"SET unvalidAttributes=JSON_ARRAY_APPEND(unvalidAttributes, '$', '{error}') " \
+                 f"WHERE model='{model}' AND subdomain='{subdomain}' AND domain='{domain}' AND version='{version}'"
+        self.generic_query(_query, False)
+
+    def set_new_attribute(self, model, subdomain, domain, version, attribute_name, attribute_dict):
+        _query = f"UDPATE raw_schema_model " \
+                 f"SET attributes=JSON_SET(attributes->'$.{attribute_name}', '$', '{json.dumps(attribute_dict)}') " \
+                 f"WHERE model='{model}' AND subdomain='{subdomain}' AND domain='{domain}' AND version='{version}'"

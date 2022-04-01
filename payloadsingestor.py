@@ -5,13 +5,10 @@ import ast
 import rule_generator
 
 class PayloadsIngestor():
-    def __init__(self, database, result_folder, dict_link):
+    def __init__(self, database, dict_link):
         self.database = database
         self.model_parser = pm.Parser(database)
-        self.payloads_list = []  # List of payloads kept
-        self.results_folder = result_folder
         self.rule_generator = rule_generator.RuleGenerator(database, dict_link)
-        self.rules = []
 
     # curl -H "Fiware-Service:Tampere" https://context.tampere.fiware.cityvision.cloud:443/v2/entities
     def open_link(self, link: str, header=""):
@@ -22,7 +19,6 @@ class PayloadsIngestor():
             r = requests.get(link)
         r = r.json()
         if len(r) > 0:
-            self.payloads_list.append(r)
             self.model_parser.set_payloads(r, True)
             _triple = self.model_parser.get_results()
             return _triple

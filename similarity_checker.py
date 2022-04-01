@@ -38,11 +38,6 @@ class SimilarityChecker():
             _value_type_1 = self._check_against_attrs_of_schema(attribute_key, _model, _subdomain, _domain, _version)
             if _value_type_1:
                 return self.s4c_dictionary.fit_value_type(attribute_key)
-            # Attributo nuovo
-            self.edit_attribute(attribute_key, _model, _subdomain, _domain, _version)
-            _value_type_1 = self._check_against_attrs_of_schema(attribute_key, _model, _subdomain, _domain, _version)
-            if _value_type_1:
-                return self.s4c_dictionary.fit_value_type(attribute_key)
         else:
             _value_type_2 = self._check_in_common_schemas(attribute_key, schema_tuple)
             if _value_type_2:
@@ -205,60 +200,3 @@ class SimilarityChecker():
                 text=f'Found following match in dictionary of S4C (name|id):\n{_attrs}\nWrite into "value_type" any of this value type,'
                      f' and write "True" in "checked".')
 
-    # Controllo se tra tutti gli attributi con checked=True di TUTTI gli schema, ho una struttura simile a quella
-    # dell'attributo passato in ingresso
-    def _check_against_attrs_structure(self, attribute_key, onlyChecked, schema_tuple):
-        print(f"Attribute '{attribute_key}': try to find some attribute with same keys.")
-        _all_attributes_checked = self.db_helper.get_attributes(onlyChecked=onlyChecked, excludeType=True)
-        _model = schema_tuple[0]
-        _subdomain = schema_tuple[1]
-        _domain = schema_tuple[2]
-        _version = schema_tuple[3]
-        _attribute = self.db_helper.get_attribute(attribute_key, _model, _subdomain, _domain, _version)
-        _possibilities = []
-        if len(_attribute) > 0:
-            # NON HO TROVATO L'ATTRIBUTO tra quelli previsti dal modello. E' un attributo common?
-            _attribute = _attribute[0][4]
-            _raw_attribute = _attribute["raw_attribute"]
-            if isinstance(_raw_attribute, dict):
-                _raw_attr_keys = _raw_attribute.keys()
-            else:
-                return _possibilities
-            if len(_raw_attr_keys) > 2: # Voglio almeno 3 keys nella struttura dell'attributo
-                while len(_all_attributes_checked) > 0:
-                    _tuple = _all_attributes_checked.pop(0)
-                    for _other_attr in _tuple[0]:
-                        _obj = _tuple[0][_other_attr]["raw_attribute"]
-                        if isinstance(_obj, str):
-                            _obj = json.loads(_obj)     # alcune volte trovo raw_attribute ancora string.
-                        if isinstance(_obj, dict):
-                            if len(_obj.keys()) > 2:
-                                if statics.json_is_equals(_obj.keys(), _raw_attr_keys):
-                                    if _obj["type"] == _raw_attribute["type"]:
-                                        _possibilities.append((_tuple[0][_other_attr]["value_type"], _tuple[1]))
-                        elif isinstance(_obj, list):
-                            for item in _obj:
-                                if len(item.keys()) > 2:
-                                    if statics.json_is_equals(item.keys(), _raw_attr_keys):
-                                        if item["type"] == _raw_attribute["type"]:
-                                            _possibilities.append((_tuple[0][_other_attr]["value_type"], _tuple[1]))
-        if len(_possibilities) > 0 and len(_attribute) > 0:
-            if len(_possibilities) == 1:
-                print(f"Attribute '{attribute_key}': found just one value_type for this attribute. Value_type: '{_possibilities[0]}' (value_type|model)")
-                return _possibilities[0]
-            print(f"Attribute '{attribute_key}': found some simil attribute")
-            _attrs = json.dumps(_possibilities)
-            statics.window_edit_attribute(
-                _attribute,
-                attribute_key, f"Update '{attribute_key}'",
-                _model, _subdomain, _domain, _version, self.db_helper,
-                text=f'Found following match in checked attributes of ALL schemas (value_type|model):\n{_attrs}\nWrite into "value_type" any of this value type,'
-                     f' and write "True" in "checked"')
-
-    def edit_attribute(self, attribute_key, _model, _subdomain, _domain, _version):
-        _attribute = self.db_helper.get_attribute(attribute_key, _model, _subdomain, _domain, _version)
-        statics.window_edit_attribute(
-            _attribute[0][4],
-            attribute_key, f"Update '{attribute_key}'",
-            _model, _subdomain, _domain, _version, self.db_helper,
-            text=f'Set a "value_type" and set checked "True"')
