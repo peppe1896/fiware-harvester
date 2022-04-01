@@ -26,8 +26,10 @@ class DbSchemaHelper:
                     attributesLog JSON,
                     json_schema JSON,
                     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    unvalidAttributes JSON NULL DEFAULT NULL,
                     PRIMARY KEY (domain, subdomain, model, version)
                 );"""
+
         _table_default_versions = """CREATE TABLE IF NOT EXISTS default_versions
                 (
                     domain VARCHAR(50) NOT NULL DEFAULT "Unset",
@@ -37,6 +39,7 @@ class DbSchemaHelper:
                     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (domain, subdomain, model)
                 );"""
+
         _table_map_id = """CREATE TABLE IF NOT EXISTS map_id
                 (
                     model_id INT NOT NULL AUTO_INCREMENT,
@@ -46,8 +49,9 @@ class DbSchemaHelper:
                     version VARCHAR(10) NOT NULL DEFAULT "0.0.0",
                     PRIMARY KEY (model_id)
                 );"""
+
         _view_attrs = """
-                CREATE VIEW IF NOT EXISTS attrs AS 
+                CREATE VIEW attrs AS 
                 SELECT model, domain, subdomain, version, value_name, value_type, data_type, value_unit, 
                     healthiness_criteria, healthiness_value, editable, checked, raw_attribute 
                 FROM raw_schema_model, json_table(
@@ -63,7 +67,9 @@ class DbSchemaHelper:
                             checked VARCHAR(30) path '$.checked',  
                             raw_attribute JSON path '$.raw_attribute')) as t;
                 """
-        _table_rules = """CREATE TABLE IF NOT EXISTS`EXT_values_rules` (
+
+        _table_rules = """
+                CREATE TABLE IF NOT EXISTS`EXT_values_rules` (
                       `Name` varchar(40) NOT NULL,
                       `If_statement` text DEFAULT NULL,
                       `Then_statement` text DEFAULT NULL,
@@ -76,6 +82,7 @@ class DbSchemaHelper:
                       `deviceId` varchar(100) DEFAULT NULL,
                       PRIMARY KEY (`Timestamp`)
                 );"""
+
         _function_delete_checked = """
                 CREATE FUNCTION filter_checked (json_doc JSON, checked VARCHAR(5))
                 RETURNS TEXT
@@ -86,13 +93,29 @@ class DbSchemaHelper:
                                                 '$[*]' COLUMNS (one_key VARCHAR(64) PATH '$')) jsontable
                                 HAVING output->>'$.checked' = checked ) subquery );"""
 
+        _table_context_brokers = """
+                CREATE TABLE EXT_brokers IF NOT EXISTS (
+                    organization VARCHAR(50) NOT NULL,
+                    contextBrokerID VARCHAR(50) NOT NULL,
+                    accessLink VARCHAR(50) NOT NULL,
+                    multitenancy BOOLEAN NOT NULL,
+                    header VARCHAR(50),
+                    service VARCHAR(50),
+                    servicePath VARCHAR(50),
+                    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (accessLink)
+                );"""
+
         _tables = [
             _table_raw_schema_model,
             _table_default_versions,
             _table_map_id,
-            _table_rules
+            _table_rules,
+            _view_attrs,
+            _table_context_brokers
             # _function_delete_checked
         ]
+
         for _table in _tables:
             try:
                 self.cursor_mysql.execute(_table)
@@ -204,7 +227,7 @@ class DbSchemaHelper:
                 _overwrite = "REPLACE"
                 _end = ""
             self.prepared_cursor_mysql.execute(
-                f'{_overwrite} INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW()) {_end}', _t)
+                f'{_overwrite} INTO raw_schema_model VALUES (?,?,?,?,?,?,?,?,NOW(),JSON_ARRAY()) {_end}', _t)
             self.connector_mysql.commit()
             self.prepared_cursor_mysql.reset()
             return True, ""

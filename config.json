@@ -1,0 +1,25 @@
+{
+  "repository_base_link": "https://github.com/smart-data-models/",
+  "download_folder": "/media/giuseppe/Archivio2/Download/",
+  "results_folder": "/home/giuseppe/PycharmProjects/auto_downl_ghub/Results/",
+  "db_config_file": "/home/giuseppe/PycharmProjects/auto_downl_ghub/dbconfig.json",
+  "s4c_dictionary_link": "https://processloader.snap4city.org/processloader/api/dictionary/",
+  "domains": [
+    "data-models",
+    "SmartCities",
+    "SmartAgrifood",
+    "SmartWater",
+    "SmartEnergy",
+    "SmartEnvironment",
+    "SmartRobotics",
+    "Smart-Sensoring",
+    "CrossSector",
+    "SmartAeronautics",
+    "SmartDestination",
+    "SmartHealth",
+    "SmartManufacturing"
+  ],
+  "overwrite_rules": true,
+  "harvest-smartdatamodels": true,
+  "organization": "DISIT"
+}

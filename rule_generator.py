@@ -51,8 +51,6 @@ class RuleGenerator():
                     value_type = value_type.pop(0)
                     print(f"Multiple choises for attribute '{attribute}'. Assumed '{value_type}'.")
                     _create_rule = True
-                else:
-                    a = None
             elif attribute not in ["type", "id"]:
                 print(f"No value_type found for '{attribute}'")
 

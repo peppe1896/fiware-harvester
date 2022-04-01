@@ -191,4 +191,8 @@ def ask_choose_folder(title):
     else:
         return
 
+def load_config(config_location):
+    import json
+    with open(config_location) as dbconfig:
+        return json.load(dbconfig)
 

@@ -1,39 +1,21 @@
 #!/usr/bin/env python
-###########
-# IMPORTS #
-###########
+
 import harvester as hv
 import dbschemahelper as db
 import payloadsingestor as ingstr
 import statics
-###############
-# DEFINITIONS #
-###############
-base_link = "https://github.com/smart-data-models/"             # Don't change
-dictionary_link = "https://processloader.snap4city.org/processloader/api/dictionary/"
-download_folder = statics.ask_choose_folder("Select download folder")#"/media/giuseppe/Archivio2/Download/"#filedialog.askdirectory() + "/"#os.path.dirname(__file__)+ "/Download/"       # Must end with /
-result_folder = statics.ask_choose_folder("Select results folder")#os.path.dirname(__file__) + "/Results/" #filedialog.askdirectory() + "/" #os.path.dirname(__file__)+ "/Results/"          # Must end with /
-db_config_file = statics.ask_open_file("json", "Select database config file")#os.path.dirname(__file__) + "/dbconfig.json"
-domains = [
-    "data-models",
-    "SmartCities",
-    "SmartAgrifood",
-    "SmartWater",
-    "SmartEnergy",
-    "SmartEnvironment",
-    "SmartRobotics",
-    "Smart-Sensoring",
-    "CrossSector",
-    "SmartAeronautics",
-    "SmartDestination",
-    "SmartHealth",
-    "SmartManufacturing"
-]
 
-########
-# MAIN #
-########
 if __name__ == "__main__":
+    # LOAD CONFIG #
+    _config = statics.load_config("./config.json")
+    base_link = _config["repository_base_link"]
+    dictionary_link = _config["s4c_dictionary_link"]
+    download_folder = _config["download_folder"]
+    result_folder = _config["results_folder"]
+    db_config_file = _config["db_config_file"]
+    domains = _config["domains"]
+
+    # EXECUTE CONFIG #
     statics.create_folders([download_folder, result_folder])
     dbconfig = statics.load_db_config(db_config_file)
     _hv = None
@@ -127,28 +109,6 @@ if __name__ == "__main__":
                     _dom = input("Domain: ")
                     _vers = input("Version: ")
                     a = _db_helper.get_attribute(_attr, _model, _sub, _dom, _vers, "False")
-
-                    if True:
-                        continue
-
-                    _iter = len(a) - 1
-                    _temp = []
-                    while _iter >= 0:
-                        _last = a.pop(_iter)
-                        for _item in a:
-                            if statics.json_is_equals(_last[4]["raw_attribute"], _item[4]["raw_attribute"]):
-                                s = None
-                            else:
-                                _k_1 = _last[4].keys()
-                                _k_2 = _item[4].keys()
-                                if sorted(_k_1) == sorted(_k_2):
-                                    d = None
-                                else:
-                                    s = None
-                                if _last[4]["raw_attribute"]["type"] == _item[4]["raw_attribute"]["type"]:
-                                    s = None
-                                else:
-                                    s = None
                 elif _command == "update_checked":
                     _model = input("Model: ")
                     _sub = input("Subdomain: ")

@@ -14,16 +14,13 @@ class PayloadsIngestor():
         self.rules = []
 
     # curl -H "Fiware-Service:Tampere" https://context.tampere.fiware.cityvision.cloud:443/v2/entities
-    def open_link(self, link: str, header="", save_json=True):
+    def open_link(self, link: str, header=""):
         if header:
             _h = ast.literal_eval(header)
             r = requests.get(link, headers=_h)
         else:
             r = requests.get(link)
         r = r.json()
-        if save_json:
-            with open(self.results_folder + f"payloads.json", "w") as file:
-                file.write(r)
         if len(r) > 0:
             self.payloads_list.append(r)
             self.model_parser.set_payloads(r, True)
