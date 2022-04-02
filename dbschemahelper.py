@@ -521,13 +521,12 @@ class DbSchemaHelper:
                 print(f"Different schemas with same model name. Model: '{model}'")
         return _same_schemas
 
-    def update_json_attribute(self, model, subdomain, domain, version, attribute_name, field="checked",
-                              value_to_set="False"):
-        _query = f"""UPDATE raw_schema_model  \
-                 SET attributes=JSON_SET(attributes, "$.{attribute_name}.{field}", )  \
-                 WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}" """
+    def update_attributes_field(self, model, subdomain, domain, version, attribute_name, field="checked",
+                                value_to_set="False"):
         try:
             # self.cursor_mysql.execute(_query)
+            if not isinstance(value_to_set, str):
+                value_to_set = json.dumps(value_to_set)
             _t = (value_to_set,)
             self.prepared_cursor_mysql.execute(
                 f'UPDATE raw_schema_model '
@@ -639,14 +638,40 @@ class DbSchemaHelper:
             _temp.append(tuple(_tuple))
         return _temp
 
-
     def add_rule_problem(self, model, subdomain, domain, version, error):
         _query = f"UPDATE raw_schema_model " \
                  f"SET unvalidAttributes=JSON_ARRAY_APPEND(unvalidAttributes, '$', '{error}') " \
                  f"WHERE model='{model}' AND subdomain='{subdomain}' AND domain='{domain}' AND version='{version}'"
         self.generic_query(_query, False)
 
-    def set_new_attribute(self, model, subdomain, domain, version, attribute_name, attribute_dict):
-        _query = f"UDPATE raw_schema_model " \
-                 f"SET attributes=JSON_SET(attributes->'$.{attribute_name}', '$', '{json.dumps(attribute_dict)}') " \
-                 f"WHERE model='{model}' AND subdomain='{subdomain}' AND domain='{domain}' AND version='{version}'"
+    def set_attribute(self, model, subdomain, domain, version, attribute_name, attribute_dict):
+        for attr_key in attribute_dict:
+            self.update_attributes_field(model, subdomain, domain, version, attribute_name, attr_key, attribute_dict[attr_key])
+
+    def update_attributes_log(self, model, subdomain, domain, version, attribute_name, new_log):
+        _query = f'UPDATE raw_schema_model SET attributesLog=JSON_SET(attributesLog, "$.{attribute_name}", JSON_ARRAY()) ' \
+                 f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
+        self.generic_query(_query, False)
+        for _log_row in new_log:
+            _query = f'UPDATE raw_schema_model SET attributesLog=JSON_ARRAY_APPEND(attributesLog, "$.{attribute_name}", "{_log_row}") ' \
+                     f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
+            self.generic_query(_query, False)
+        # try:
+        #     if not isinstance(new_log, str):
+        #         new_log = json.dumps(new_log)
+        #     _t = (new_log,)
+        #     self.prepared_cursor_mysql.execute(
+        #         f'UPDATE raw_schema_model '
+        #         f'SET attributesLog=JSON_SET(attributesLog, "$.{attribute_name}", %s) '
+        #         f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"', _t)
+        #
+        #     self.connector_mysql.commit()
+        #     self.cursor_mysql.reset()
+        # except mysql.connector.Error as err:
+        #     print("Something went wrong: {}".format(err))
+        #     self.connector_mysql.rollback()
+        #     return None
+        # except mysql.connector.Warning as err:
+        #     print("Something went wrong: {}".format(err))
+        #     self.connector_mysql.rollback()
+        #     return None
