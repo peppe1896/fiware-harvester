@@ -456,7 +456,7 @@ class DbSchemaHelper:
             return None
 
     # Return list of tuple with python dict of attributes
-    # It can find some attribute with same name if model .. are not specified.
+    # It can find some attribute with same name if model .. is not specified.
     def get_attribute(self, attribute_name, model=None, subdomain=None, domain=None, version=None,
                       onlyChecked_True_False=None):
         _query = f"""select model, subdomain, domain, version, attributes->"$.{attribute_name}" from raw_schema_model where json_contains(attributes->>"$.*.value_name", '"{attribute_name}"', "$" )"""
@@ -521,8 +521,8 @@ class DbSchemaHelper:
                 print(f"Different schemas with same model name. Model: '{model}'")
         return _same_schemas
 
-    def update_attributes_field(self, model, subdomain, domain, version, attribute_name, field="checked",
-                                value_to_set="False"):
+    def update_attribute_field(self, model, subdomain, domain, version, attribute_name, field="checked",
+                               value_to_set="False"):
         try:
             # self.cursor_mysql.execute(_query)
             if not isinstance(value_to_set, str):
@@ -534,7 +534,7 @@ class DbSchemaHelper:
                 f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"', _t)
 
             self.connector_mysql.commit()
-            self.cursor_mysql.reset()
+            self.prepared_cursor_mysql.reset()
         except mysql.connector.Error as err:
             print("Something went wrong: {}".format(err))
             self.connector_mysql.rollback()
@@ -582,9 +582,15 @@ class DbSchemaHelper:
             return None
 
     def create_empty_attribute(self, attribute_name, model, subdomain, domain, version):
-        _query = f'UPDATE raw_schema_model SET attributes=JSON_INSERT(attributes->"$", "$.{attribute_name}", JSON_OBJECT("value_type", "-"))' \
-                 f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
-        self.generic_query(_query, returns=False)
+        if not self.attribute_exists(attribute_name, model, subdomain, domain, version):
+            _query = f'UPDATE raw_schema_model SET attributes=JSON_INSERT(attributes->"$", "$.{attribute_name}", ' \
+                     f'JSON_OBJECT("value_type", "-", "value_name", "{attribute_name}", "checked", "False", "editable", "0", "data_type", "-", ' \
+                     f'"value_unit", "-", "raw_attribute", JSON_OBJECT(), "healthiness_value", "300", "healthiness_criteria", "refresh_rate")) ' \
+                     f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
+            self.generic_query(_query, returns=False)
+            _query = f'UPDATE raw_schema_model SET attributesLog=JSON_SET(attributesLog->"$", "$.{attribute_name}", JSON_ARRAY()) ' \
+                     f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
+            self.generic_query(_query, False)
 
     def attribute_exists(self, attribute_name, model=None, subdomain=None, domain=None, version=None):
         _query = f'SELECT count(*) from attrs where value_name="{attribute_name}"'
@@ -618,8 +624,10 @@ class DbSchemaHelper:
                 return True
         return False
 
-    def get_brokers(self):
+    def get_brokers(self, organization=None):
         _query = "SELECT * FROM EXT_brokers"
+        if organization:
+            _query += f" WHERE organization='{str(organization)}'"
         return self.generic_query(_query, True)
 
     def set_broker_status(self, context_broker_link, status):
@@ -639,14 +647,23 @@ class DbSchemaHelper:
         return _temp
 
     def add_rule_problem(self, model, subdomain, domain, version, error):
-        _query = f"UPDATE raw_schema_model " \
-                 f"SET unvalidAttributes=JSON_ARRAY_APPEND(unvalidAttributes, '$', '{error}') " \
-                 f"WHERE model='{model}' AND subdomain='{subdomain}' AND domain='{domain}' AND version='{version}'"
-        self.generic_query(_query, False)
+        try:
+            self.prepared_cursor_mysql.execute(f'UPDATE raw_schema_model SET unvalidAttributes=JSON_ARRAY_APPEND(unvalidAttributes, "$", %s) '
+                                       f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"', (error, ))
+            self.connector_mysql.commit()
+            self.prepared_cursor_mysql.reset()
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
+            return None
+        except mysql.connector.Warning as err:
+            print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
+            return None
 
     def set_attribute(self, model, subdomain, domain, version, attribute_name, attribute_dict):
         for attr_key in attribute_dict:
-            self.update_attributes_field(model, subdomain, domain, version, attribute_name, attr_key, attribute_dict[attr_key])
+            self.update_attribute_field(model, subdomain, domain, version, attribute_name, attr_key, attribute_dict[attr_key])
 
     def update_attributes_log(self, model, subdomain, domain, version, attribute_name, new_log):
         _query = f'UPDATE raw_schema_model SET attributesLog=JSON_SET(attributesLog, "$.{attribute_name}", JSON_ARRAY()) ' \
@@ -656,22 +673,20 @@ class DbSchemaHelper:
             _query = f'UPDATE raw_schema_model SET attributesLog=JSON_ARRAY_APPEND(attributesLog, "$.{attribute_name}", "{_log_row}") ' \
                      f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"'
             self.generic_query(_query, False)
-        # try:
-        #     if not isinstance(new_log, str):
-        #         new_log = json.dumps(new_log)
-        #     _t = (new_log,)
-        #     self.prepared_cursor_mysql.execute(
-        #         f'UPDATE raw_schema_model '
-        #         f'SET attributesLog=JSON_SET(attributesLog, "$.{attribute_name}", %s) '
-        #         f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"', _t)
-        #
-        #     self.connector_mysql.commit()
-        #     self.cursor_mysql.reset()
-        # except mysql.connector.Error as err:
-        #     print("Something went wrong: {}".format(err))
-        #     self.connector_mysql.rollback()
-        #     return None
-        # except mysql.connector.Warning as err:
-        #     print("Something went wrong: {}".format(err))
-        #     self.connector_mysql.rollback()
-        #     return None
+
+    def append_to_logs(self, model, subdomain, domain, version, attribute_name, row):
+        self.create_empty_attribute(attribute_name, model, subdomain, domain, version)
+        try:
+            self.prepared_cursor_mysql.execute(f'UPDATE raw_schema_model '
+                                               f'SET attributesLog=JSON_ARRAY_APPEND(attributesLog, "$.{attribute_name}", "{row}") '
+                                               f'WHERE model="{model}" AND subdomain="{subdomain}" AND domain="{domain}" AND version="{version}"')
+            self.connector_mysql.commit()
+            self.prepared_cursor_mysql.reset()
+        except mysql.connector.Error as err:
+            print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
+            return None
+        except mysql.connector.Warning as err:
+            print("Something went wrong: {}".format(err))
+            self.connector_mysql.rollback()
+            return None

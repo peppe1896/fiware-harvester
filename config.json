@@ -20,8 +20,9 @@
     "SmartManufacturing"
   ],
   "overwrite_rules": true,
-  "harvest-smartdatamodels": true,
-  "overwrite_database_models": true,
+  "harvest-smartdatamodels": false,
+  "overwrite_database_models": false,
   "save_wrong_models": false,
+  "all_organizations": false,
   "organization": "DISIT"
 }

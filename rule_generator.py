@@ -44,20 +44,10 @@ class RuleGenerator():
         for attribute in _payload.keys():
             _create_rule = False
             value_type = self.sim_checker.fit_value_type(attribute, _schema_tuple)
-            if isinstance(value_type, tuple) or isinstance(value_type, str): # Quando trovo un match con id
+            if isinstance(value_type, tuple): # Quando trovo un match con id
                 _create_rule = True
-            elif isinstance(value_type, list):
-                if len(value_type) > 0:
-                    value_type = value_type.pop(0)
-                    print(f"Multiple choises for attribute '{attribute}'. Assumed '{value_type}'.")
-                    _create_rule = True
             elif attribute not in ["type", "id"]:
                 print(f"No value_type found for '{attribute}'")
-                self.db_helper.add_rule_problem(_schema_tuple[0],
-                                                _schema_tuple[1],
-                                                _schema_tuple[2],
-                                                _schema_tuple[3],
-                                                f"Error: no value_type found for attribute {attribute}")
 
             if _create_rule:
                 _rule_name = _device+f"-{attribute}"
@@ -70,17 +60,18 @@ class RuleGenerator():
                 _thens.append(self._gen_then("value_type",
                                              value_type[0] if isinstance(value_type, tuple) else value_type)
                               )
-                if attribute in _metadata.keys():
-                    if "unit" in _metadata[attribute].keys():
+                #if attribute in _metadata.keys():
+                #    if "unit" in _metadata[attribute].keys():
                         # Devo creare una nuova regola che vincola questo unit?
                         # Potrebbe essere non necessario
-                        _thens.append(self._gen_then("value_unit", _metadata[attribute]["unit"]))
+                #        _thens.append(self._gen_then("value_unit", _metadata[attribute]["unit"]))
                 _rule = [_rule_name, _ifs, _thens, _organization, _context_broker]
                 if multitenancy:
                     _rule.append(service)
                     _rule.append(servicePath)
                 _rule.append(_device)
                 _rules.append(tuple(_rule))  # Devo creare una regola per ognuno degli attributi.
-
+            else:
+                print(f"Unable to generate rule for value_type of {attribute}")
 
         return _rules

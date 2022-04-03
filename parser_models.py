@@ -51,7 +51,7 @@ class Parser():
                 _schema = self.db_helper.get_model_schema(_payload_model)
                 try:
                     validate(payload, _schema)
-                    print(f"From of type '{payload['type']}' from device '{payload['id']} has been parsed.")
+                    print(f"From device '{payload['id']} of type '{payload['type']}': PARSED.")
                     self.validated_payloads.append(((payload,_raw_payload[1]), (_payload_model, _schema_key[1], _schema_key[2], _schema_key[0])))
                 except Exception as e:
                     _unval_errors = {"unvalidated": [], "errors": []}
@@ -145,6 +145,7 @@ class Parser():
                                 _tmp = _tmp[_pointer]
                         a = self.execute_parsing([(_payload, _metadata)])
                         if len(a) > 0:
+                            print(f"Corrected error when parsing with schema of '{_payload['id']}'")
                             unvalidated_payloads.append(a[0])
                     else:
                         # Se non è uno dei casi che so gestire, allora confermo che si tratta di un payload non correggibile

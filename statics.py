@@ -162,7 +162,7 @@ def window_edit_attribute(attribute, attribute_name, title, model, subdomain, do
             _value_to_set = new_attribute[_k]
             if isinstance(new_attribute[_k], dict):
                 _value_to_set = json.dumps(new_attribute[_k])
-            db.update_attributes_field(model, subdomain, domain, version, attribute_name, field=_k, value_to_set=_value_to_set)
+            db.update_attribute_field(model, subdomain, domain, version, attribute_name, field=_k, value_to_set=_value_to_set)
         app.destroy()
 
     def reset():

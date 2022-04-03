@@ -56,8 +56,6 @@ if __name__ == "__main__":
                 _msg = _obj[_messages_iterator]
                 _msg = _msg.rsplit()
                 # Check if its a rule
-                if len(_msg)==0:
-                    a = None
                 if _msg[0] == "s4c_rule":
                     _msg.pop(0)
                     _message_word_iterator = 0
@@ -93,7 +91,10 @@ if __name__ == "__main__":
                                                    attribute_name=_attribute, new_log=_obj) # Elimino i messaggi caricando solo quelli
                                                                                             # rimanenti in _obj
     # MODEL INGESTION
-    _brokers = _db_helper.get_brokers()
+    if _config["all_organizations"]:
+        _brokers = _db_helper.get_brokers()
+    else:
+        _brokers = _db_helper.get_brokers(_config["organization"])
     while len(_brokers) > 0:
         _broker = _brokers.pop()
         _organization = _broker[0]
