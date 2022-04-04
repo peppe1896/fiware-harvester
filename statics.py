@@ -152,7 +152,7 @@ def window_edit_attribute(attribute, attribute_name, title, model, subdomain, do
                 print(f"Can't create this attribute. Key '{_k}' is missing...")
                 return
         if not db.attribute_exists(attribute_name, model, subdomain, domain, version):
-            db.create_empty_attribute(attribute_name, model, subdomain, domain, version)
+            db.create_attribute_if_not_exists(attribute_name, model, subdomain, domain, version)
         else:
             _ans = messagebox.askyesno("Attribute already exists", "If you continue, you'll overwrite old definition")
             #window_read_json(db.get_attribute(attribute_name, model, subdomain, domain, version)[0][4], f"Old attribute '{attribute_name}'")

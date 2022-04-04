@@ -61,7 +61,7 @@ if __name__ == "__main__":
                     _message_word_iterator = 0
                     # Use existing attribute, or create a new one
                     if _attribute not in _attrs.keys():
-                        _db_helper.create_empty_attribute(_attribute, _model, _subdomain, _domain, _version)
+                        _db_helper.create_attribute_if_not_exists(_attribute, _model, _subdomain, _domain, _version)
                         _attr = dict(statics.ATTRIBUTE_MASK)
                         _attr["value_name"] = _attribute
                     else:

@@ -80,7 +80,7 @@ class DbSchemaHelper:
                       `service` varchar(25) DEFAULT NULL,
                       `servicePath` varchar(96) DEFAULT NULL,
                       `deviceId` varchar(100) DEFAULT NULL,
-                      PRIMARY KEY (`Timestamp`)
+                      PRIMARY KEY (`Name`, `Timestamp`)
                 );"""
 
         _function_delete_checked = """
@@ -97,9 +97,9 @@ class DbSchemaHelper:
                 CREATE TABLE IF NOT EXISTS EXT_brokers (
                     organization VARCHAR(50) NOT NULL,
                     contextBrokerID VARCHAR(50) NOT NULL,
-                    accessLink VARCHAR(50) NOT NULL,
+                    accessLink VARCHAR(256) NOT NULL,
                     multitenancy BOOLEAN NOT NULL,
-                    header VARCHAR(50),
+                    NGSIvers VARCHAR(50),
                     service VARCHAR(50),
                     servicePath VARCHAR(50),
                     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -121,7 +121,8 @@ class DbSchemaHelper:
                 self.cursor_mysql.execute(_table)
                 self.cursor_mysql.reset()
             except mysql.connector.Error as err:
-                print("Something went wrong: {}".format(err))
+                if err.msg != "Table 'attrs' already exists":
+                    print("Something went wrong: {}".format(err))
 
     def update_default_version(self, model, subdomain, domain, new_version):
         _query = f'UPDATE default_versions SET  defaultVersion="{new_version}" WHERE ' \
@@ -581,7 +582,7 @@ class DbSchemaHelper:
             print("Something went wrong: {}".format(err))
             return None
 
-    def create_empty_attribute(self, attribute_name, model, subdomain, domain, version):
+    def create_attribute_if_not_exists(self, attribute_name, model, subdomain, domain, version):
         if not self.attribute_exists(attribute_name, model, subdomain, domain, version):
             _query = f'UPDATE raw_schema_model SET attributes=JSON_INSERT(attributes->"$", "$.{attribute_name}", ' \
                      f'JSON_OBJECT("value_type", "-", "value_name", "{attribute_name}", "checked", "False", "editable", "0", "data_type", "-", ' \
@@ -675,7 +676,7 @@ class DbSchemaHelper:
             self.generic_query(_query, False)
 
     def append_to_logs(self, model, subdomain, domain, version, attribute_name, row):
-        self.create_empty_attribute(attribute_name, model, subdomain, domain, version)
+        self.create_attribute_if_not_exists(attribute_name, model, subdomain, domain, version)
         try:
             self.prepared_cursor_mysql.execute(f'UPDATE raw_schema_model '
                                                f'SET attributesLog=JSON_ARRAY_APPEND(attributesLog, "$.{attribute_name}", "{row}") '

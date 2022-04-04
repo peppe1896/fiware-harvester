@@ -58,7 +58,7 @@ class Schema_interpreter:
 
     # Procedure istanzia un nuovo modello - Può essere chiamato da fuori contenendo questo oggetto
     def procedure(self, schema_uri, domain, subdomain, model):
-        print(f"\nAnalisi di {domain} {subdomain} {model}")
+        print(f"\nAnalysis of {domain} {subdomain} {model}")
         self._reset()
         self.schema_uri = schema_uri
         self.domain = domain

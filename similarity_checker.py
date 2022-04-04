@@ -67,7 +67,8 @@ class SimilarityChecker():
         if len(_common_attr) == 0:
             print(f"No attribute found with name '{attribute_key}'")
             self.message = f"[ No attribute found named '{attribute_key}'. ]"
-            self.db_helper.append_to_logs(_model, _subdomain, _domain, _version, attribute_key, "s4c checked False")
+            self.db_helper.append_to_logs(_model, _subdomain, _domain, _version, attribute_key, f"Added '{attribute_key}', not present in schema.")
+            # self.db_helper.append_to_logs(_model, _subdomain, _domain, _version, attribute_key, "s4c_rule checked False")
         elif len(_common_attr) > 0:
             while len(_common_attr) > 0:
                 _cm_attr = _common_attr.pop()
@@ -130,6 +131,7 @@ class SimilarityChecker():
             self.db_helper.update_attribute_field(model, subdomain, domain, version, attribute_key, "checked", "True")
             self.db_helper.update_attribute_field(model, subdomain, domain, version, attribute_key, "value_type", _instance[0])
             self.message += f'[ Assigned value_type found in S4C Dictionary (name|id), and set Checked \'True\': {_instance} ]'
+            # aggiungi questo su attrLog
             return _instance
 
         return None
