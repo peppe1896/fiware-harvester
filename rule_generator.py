@@ -40,7 +40,7 @@ class RuleGenerator():
             _service = service
             _servicePath = servicePath
         _rules = []
-        print(f"Creating rules for device '{_device}'")
+        print(f"\nCreating rules for device '{_device}'")
         for attribute in _payload.keys():
             _create_rule = False
             value_type = self.sim_checker.fit_value_type(attribute, _schema_tuple)
@@ -71,7 +71,8 @@ class RuleGenerator():
                     _rule.append(servicePath)
                 _rule.append(_device)
                 _rules.append(tuple(_rule))  # Devo creare una regola per ognuno degli attributi.
+                print(f"Generated rule for value_type of {attribute}\n")
             else:
-                print(f"Unable to generate rule for value_type of {attribute}")
+                print(f"Unable to generate rule for value_type of {attribute}\n")
 
         return _rules

@@ -51,7 +51,7 @@ class Parser():
                 _schema = self.db_helper.get_model_schema(_payload_model)
                 try:
                     validate(payload, _schema)
-                    print(f"From device '{payload['id']} of type '{payload['type']}': PARSED.")
+                    print(f"Device '{payload['id']} of type '{payload['type']}': PARSED.")
                     self.validated_payloads.append(((payload,_raw_payload[1]), (_payload_model, _schema_key[1], _schema_key[2], _schema_key[0])))
                 except Exception as e:
                     _unval_errors = {"unvalidated": [], "errors": []}
@@ -95,9 +95,9 @@ class Parser():
                         # Voglio controllare se i modelli che non hanno validato sono comunque uguali
                         _unvalidated_payloads.append(((payload,_raw_payload[1]), _unval_errors))
                     else: # Più schema hanno validato payload. Sono uguali?
-                        print("")
+                        print("NEW CASE: please go in parser_model.py -> execute_parsing()")
             else:
-                print("No schema found in database.")
+                print(f"No schema found in database for model '{_payload_model}'.")
         return _unvalidated_payloads
 
     # Ci sono errori che si possono semplicemente risolvere in modo autonomo per parsare i payload.
@@ -119,6 +119,9 @@ class Parser():
                 if isinstance(_error, ValidationError):
                     if re.search("is a required", _error.message):
                         # Questo tipo di errore non mi permette di agire - Lo inserisco in quelli imparsabili
+                        print(
+                            f"Device '{_payload['id']}' of type '{_payload['type']}' is not parsable as a Smart Data Model.-> \n\t->Error msg: {_error.message}")
+
                         self.unvalidated_payloads.append((_item,_metadata))
                         # Chiamo execute_parsing correggendo un po' il payload
                     elif re.search("is not of type", _error.message):
@@ -129,6 +132,9 @@ class Parser():
                             _d_type = "number"
                         if _d_type == "":    # Se non è un errore riconosciuto, lo sposto direttamente tra quelli non validi
                             self.unvalidated_payloads.append((_item, _metadata))
+                            print(
+                                f"Device '{_payload['id']}' of type '{_payload['type']}' is not parsable as a Smart Data Model."
+                                f"-> \n\t->Error msg: {_error.message}")
                             continue
                         _path = _error.json_path
                         _path = _path.rsplit(".")
@@ -150,9 +156,18 @@ class Parser():
                     else:
                         # Se non è uno dei casi che so gestire, allora confermo che si tratta di un payload non correggibile
                         self.unvalidated_payloads.append(_item)
+                        print(
+                            f"Device '{_payload['id']}' of type '{_payload['type']}' is not parsable as a Smart Data Model."
+                            f"-> \n\t->Error msg: {_error.message}")
+                else:
+                    # Se non è uno dei casi che so gestire, allora confermo che si tratta di un payload non correggibile
+                    self.unvalidated_payloads.append(_item)
+                    print(
+                        f"Device '{_payload['id']}' of type '{_payload['type']}' is not parsable as a Smart Data Model.")
             elif len(_schemas_id) == 0:
                 continue
             else:
+                print("NEW CASE: please go to parser_model.py -> parse_unparsed()")
                 for _schema_tuple in _schemas_id:
                     a = None
 

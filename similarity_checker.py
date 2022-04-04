@@ -42,12 +42,14 @@ class SimilarityChecker():
         if _attr:
             if _attr[0][4]["checked"] == "True":
                 val_type = _attr[0][4]["value_type"]
-                print(f"Attribute '{attribute}' is checked. Expect to have '{val_type}' inside Snap4City dictionary")
+                print(f"\tAttribute '{attribute}' is checked. Expect to have '{val_type}' inside Snap4City dictionary")
                 _temp = self.s4c_dictionary.fit_value_type(val_type, silent=True)
                 if isinstance(_temp, tuple):
+                    print(
+                        f"\tFound '{val_type}' inside Snap4City dictionary")
                     return _temp
                 else:
-                    print(f"Mismatch: value_type inside attribute is wrong. Value_type: '{val_type}'. Assumed as value_type: '{val_type}'")
+                    print(f"\tError: value_type inside attribute is wrong. Value_type: '{val_type}'. Assumed as value_type: '{val_type}'")
                     # return val_type # questo caso viene gestito sotto, quando si chiama il metodo che fa il check su s4c
                     self.message += f"[ Add this value_type {val_type} to s4c dictionary ]"
                     self.db_helper.add_rule_problem(model, subdomain, domain, version,

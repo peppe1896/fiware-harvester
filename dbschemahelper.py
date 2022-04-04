@@ -53,7 +53,7 @@ class DbSchemaHelper:
         _view_attrs = """
                 CREATE VIEW attrs AS 
                 SELECT model, domain, subdomain, version, value_name, value_type, data_type, value_unit, 
-                    healthiness_criteria, healthiness_value, editable, checked, raw_attribute 
+                    healthiness_criteria, healthiness_value, editable, checked, raw_attribute, attributesLog
                 FROM raw_schema_model, json_table(
                     raw_schema_model.attributes, '$.*' 
                         COLUMNS( 
@@ -69,7 +69,7 @@ class DbSchemaHelper:
                 """
 
         _table_rules = """
-                CREATE TABLE IF NOT EXISTS`EXT_values_rules` (
+                CREATE TABLE IF NOT EXISTS `EXT_values_rules` (
                       `Name` varchar(40) NOT NULL,
                       `If_statement` text DEFAULT NULL,
                       `Then_statement` text DEFAULT NULL,
