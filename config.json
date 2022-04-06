@@ -1,8 +1,8 @@
 {
   "repository_base_link": "https://github.com/smart-data-models/",
   "download_folder": "/media/giuseppe/Archivio2/Download/",
-  "results_folder": "/home/giuseppe/PycharmProjects/auto_downl_ghub/Results/",
-  "db_config_file": "/home/giuseppe/PycharmProjects/auto_downl_ghub/dbconfig.json",
+  "results_folder": "./Results/",
+  "db_config_file": "./dbconfig.json",
   "s4c_dictionary_link": "https://processloader.snap4city.org/processloader/api/dictionary/",
   "domains": [
     "data-models",
@@ -20,9 +20,17 @@
     "SmartManufacturing"
   ],
   "overwrite_rules": true,
-  "harvest-smartdatamodels": true,
+  "prefix_rules": "",
+  "harvest_smartdatamodels": true,
   "overwrite_database_models": false,
   "save_wrong_models": false,
   "all_organizations": false,
   "organization": "DISIT"
 }
+
+
+
+
+
+
+

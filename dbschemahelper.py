@@ -103,7 +103,7 @@ class DbSchemaHelper:
                     service VARCHAR(50),
                     servicePath VARCHAR(50),
                     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    PRIMARY KEY (accessLink)
+                    PRIMARY KEY (accessLink, service)
                 );"""
 
         _tables = [
@@ -223,7 +223,7 @@ class DbSchemaHelper:
             self._default_version_procedure(_model, _subdomain, _domain, _version)
             self._procedure_add_id(_model, _subdomain, _domain, _version)
             _overwrite = "INSERT"
-            _end = f'ON DUPLICATE KEY UPDATE model="{_t[2]}"'
+            _end = f'ON DUPLICATE KEY UPDATE timestamp=NOW()'
             if overwrite:
                 _overwrite = "REPLACE"
                 _end = ""

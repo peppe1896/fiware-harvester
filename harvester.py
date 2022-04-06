@@ -31,12 +31,12 @@ class SmartDataModelsHarvester:
         self.base_link = base_link
         self.location_schemas = None
         self.pandas_dataframe = None
-        if not self.dict_already_exists():
-            self.load_required_files()
-            self.load_domain_dict()
-            self.save_domain_dict()
-        else:
-            self.load_created_dict()
+        #if not self.dict_already_exists():
+        self.load_required_files()
+        self.load_domain_dict()
+            #self.save_domain_dict()
+        #else:
+            #self.load_created_dict()
         self.schema_reader = s4c.Schema_interpreter(result_folder=self.result_folder)
         self.unsaved_models = []
 

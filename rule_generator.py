@@ -28,18 +28,20 @@ class RuleGenerator():
             return False
         return True
 
-    def create_rule(self, payload:dict, context_brocker, multitenancy, service, servicePath):
+    def create_rule(self, payload:dict, context_brocker, multitenancy, service, servicePath, organization, prefix):
         _payload = payload[0][0]
         _metadata = payload[0][1]
         _schema_tuple = payload[1]
         _device = _payload["id"]
-        _organization = ""
+        _organization = organization
         _context_broker = context_brocker
 
         if multitenancy:
             _service = service
             _servicePath = servicePath
         _rules = []
+        _needed_rules = len(_payload) - 2
+        _rules_created = 0
         print(f"\nCreating rules for device '{_device}'")
         for attribute in _payload.keys():
             _create_rule = False
@@ -50,7 +52,7 @@ class RuleGenerator():
                 print(f"No value_type found for '{attribute}'")
 
             if _create_rule:
-                _rule_name = _device+f"-{attribute}"
+                _rule_name = prefix+_device+f"-{attribute}"
                 _ifs = []
                 _thens = []
                 _ifs.append(self._gen_if("cb", "IsEqual", _context_broker))
@@ -72,7 +74,8 @@ class RuleGenerator():
                 _rule.append(_device)
                 _rules.append(tuple(_rule))  # Devo creare una regola per ognuno degli attributi.
                 print(f"Generated rule for value_type of {attribute}\n")
+                _rules_created += 1
             else:
                 print(f"Unable to generate rule for value_type of {attribute}\n")
-
+        print(f"Numer of rules created for '{_device}': {_rules_created} | Expected {_needed_rules} \n")
         return _rules

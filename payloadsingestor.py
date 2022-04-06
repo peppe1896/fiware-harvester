@@ -36,7 +36,7 @@ class PayloadsIngestor():
         _triple = self.model_parser.get_results()
         return _triple
 
-    def analize_results(self, triple, context_broker, multitenancy, service, servicePath):
+    def analize_results(self, triple, context_broker, multitenancy, service, servicePath, organization, prefix:str):
         _correct_payloads = triple[0]
         _uncorrect_payloads = triple[1]
         _error_thrown = triple[2]
@@ -45,7 +45,7 @@ class PayloadsIngestor():
             _rules = self.rule_generator.create_rule(_correct_payloads[_itr],
                                                      context_brocker=context_broker,
                                                      multitenancy=multitenancy,
-                                                     service=service, servicePath=servicePath)
+                                                     service=service, servicePath=servicePath, organization=organization, prefix=prefix)
             for _rule in _rules:
                 self.database.add_rule(_rule, multitenancy)
             _itr += 1

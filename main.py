@@ -14,7 +14,7 @@ if __name__ == "__main__":
     result_folder = _config["results_folder"]
     db_config_file = _config["db_config_file"]
     domains = _config["domains"]
-    _harvest_models = _config["harvest-smartdatamodels"]
+    _harvest_models = _config["harvest_smartdatamodels"]
 
     # EXECUTE CONFIG #
     statics.create_folders([download_folder, result_folder])
@@ -112,4 +112,4 @@ if __name__ == "__main__":
         if _ngsi_version == "v2":
             _link += "/v2/entities"
             _analyzed_payloads = _ingestor.open_link(_link, header=_header)
-            _ingestor.analize_results(_analyzed_payloads, _context_broker, _multitenancy, _service, _service_path)
+            _ingestor.analize_results(_analyzed_payloads, _context_broker, _multitenancy, _service, _service_path, _organization, _config["prefix_rules"])
